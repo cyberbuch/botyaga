@@ -242,12 +242,15 @@ defmodule Botyaga.Invoicing do
   end
 
   def delete_one(inv) do
+    posted = inv.status == "posted"
+
     Repo.transaction(fn ->
       Enum.each(journal_ids(inv), &Journal.wipe/1)
       Repo.delete_all(from(l in InvoiceLine, where: l.invoice_id == ^inv.id))
       Repo.delete!(inv)
     end)
 
+    if posted, do: Botyaga.Stock.Replay.rebuild(inv.company_id, "9999-12-31")
     :ok
   end
 

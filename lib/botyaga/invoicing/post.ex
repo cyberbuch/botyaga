@@ -6,6 +6,7 @@ defmodule Botyaga.Invoicing.Post do
   """
 
   alias Botyaga.{Audit, Catalog, Invoicing, Journal, Periods, Repo}
+  alias Botyaga.Stock.Replay
   alias Botyaga.Invoicing.{Invoice, Money}
   alias Botyaga.Journal.{Entry, Line}
 
@@ -15,6 +16,7 @@ defmodule Botyaga.Invoicing.Post do
          :ok <- postable(inv),
          {:ok, plan} <- plan_for(inv) do
       {:ok, body} = write_journal(inv, plan)
+      Replay.rebuild(company_id, "9999-12-31")
 
       Audit.record(
         company_id,
@@ -55,6 +57,8 @@ defmodule Botyaga.Invoicing.Post do
         Enum.each(Invoicing.journal_ids(inv), &Journal.wipe/1)
         Repo.update!(Ecto.Changeset.change(inv, status: "draft", journal_entry_id: 0))
       end)
+
+      Replay.rebuild(company_id, "9999-12-31")
 
       Audit.record(
         company_id,

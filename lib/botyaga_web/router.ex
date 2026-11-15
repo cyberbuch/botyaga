@@ -188,6 +188,14 @@ defmodule BotyagaWeb.Router do
     post "/fixed-assets/:id/dispose", AssetsController, :dispose
     get "/fixed-assets/:id/events", AssetsController, :events
 
+    get "/stock/rules", StockController, :rules
+    post "/stock/rules", StockController, :create_rule
+    delete "/stock/rules/:id", StockController, :delete_rule
+    post "/stock/rebuild", StockController, :rebuild
+    post "/stock/writeoff", StockController, :writeoff
+    get "/stock/report", StockController, :report
+    get "/inventory/at-location", StockController, :at_location
+
     match :*, "/*path", FallbackController, :fallback
   end
 
