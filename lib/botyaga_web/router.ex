@@ -142,6 +142,12 @@ defmodule BotyagaWeb.Router do
     get "/closing-operations/preview", ClosingController, :preview
     post "/closing-operations/run", ClosingController, :run
 
+    get "/vat/registers", VatController, :registers
+    get "/vat/return", VatController, :registers
+    get "/vat/export", VatController, :export
+    put "/vat/manual", VatController, :manual_save
+    get "/vat-exemptions", VatController, :exemptions
+
     match :*, "/*path", FallbackController, :fallback
   end
 
