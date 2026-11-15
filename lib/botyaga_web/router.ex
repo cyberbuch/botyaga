@@ -119,6 +119,7 @@ defmodule BotyagaWeb.Router do
     patch "/invoices/:id", InvoicesController, :update
     delete "/invoices/:id", InvoicesController, :delete
     post "/invoices/:id/post", InvoicesController, :post
+    get "/invoices/:id/print", InvoicesController, :print
     post "/invoices/:id/issue-protocol", InvoicesController, :issue_protocol
     post "/invoices/:id/issue-customs", InvoicesController, :issue_customs
 
@@ -208,6 +209,7 @@ defmodule BotyagaWeb.Router do
     get "/internal-docs", StockController, :internal_docs
     post "/internal-docs", StockController, :internal_doc_create
     get "/internal-docs/:id", StockController, :internal_doc_show
+    get "/internal-docs/:id/print", StockController, :internal_doc_print
     patch "/internal-docs/:id", StockController, :internal_doc_update
     delete "/internal-docs/:id", StockController, :internal_doc_delete
     post "/internal-docs/:id/confirm", StockController, :internal_doc_confirm

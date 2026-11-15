@@ -13,9 +13,14 @@ defmodule BotyagaWeb.ReportsController do
     end
   end
 
-  # Експортът на файлове (PDF/XLSX/ODS) зависи от печата — фаза 9.
-  def export(conn, _params) do
-    Respond.error(conn, {501, "експортът на файлове (PDF/XLSX/ODS) идва с печата — фаза 9"})
+  # Експорт на файлове: PDF (Chromium sidecar), XLSX и ODS (нативно).
+  def export(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, result} <- Reports.export(company_id, params) do
+      Respond.attachment(conn, result.bytes, result.mime, result.filename)
+    else
+      error -> Respond.error(conn, error)
+    end
   end
 
   defp active(conn) do

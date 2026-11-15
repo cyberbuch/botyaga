@@ -1,7 +1,7 @@
 defmodule BotyagaWeb.InvoicesController do
   use BotyagaWeb, :controller
 
-  alias Botyaga.{Companies, Invoicing, Params}
+  alias Botyaga.{Companies, Invoicing, Params, Printing}
   alias Botyaga.Invoicing.Post
   alias BotyagaWeb.{Render, Respond}
 
@@ -121,6 +121,18 @@ defmodule BotyagaWeb.InvoicesController do
              params
            ) do
       Respond.ok(conn, invoice, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def print(conn, %{"id" => id} = params) do
+    copy = Map.get(params, "copy") == "1"
+
+    with {:ok, company_id} <- active(conn),
+         {:ok, result} <-
+           Printing.Invoice.build(company_id, id, Map.get(params, "format", ""), copy) do
+      Respond.attachment(conn, result.bytes, Printing.mime(result.format), result.filename)
     else
       error -> Respond.error(conn, error)
     end

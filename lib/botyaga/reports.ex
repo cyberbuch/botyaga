@@ -4,11 +4,51 @@ defmodule Botyaga.Reports do
   мрежата (`grid`) е за експорта на файлове (PDF/XLSX/ODS — фаза 9). Порт на `reports.rs`.
   """
 
-  alias Botyaga.{FsFormulas, Params}
+  alias Botyaga.{FsFormulas, Params, Printing}
+  alias Botyaga.Printing.Sheet
   alias Botyaga.Reports.{Book, Corr, Data, FS, Stock, Trial}
 
   def index(company_id, params) do
     with {:ok, built} <- prepare(company_id, params), do: {:ok, built.body}
+  end
+
+  @doc "Файлов експорт: PDF (sidecar), XLSX или ODS от мрежата на справката."
+  def export(company_id, params) do
+    format = params |> str("format") |> String.trim()
+
+    if format not in ["pdf", "xlsx", "ods"] do
+      {:error, {400, "format трябва да е pdf, xlsx или ods"}}
+    else
+      with {:ok, built} <- prepare(company_id, params) do
+        bg = str(params, "bg") == "1"
+
+        result =
+          case format do
+            "pdf" ->
+              with {:ok, bytes} <- Printing.render([{:table, built.grid}], "pdf"),
+                   do: {:ok, bytes, "application/pdf"}
+
+            "xlsx" ->
+              {:ok, Sheet.xlsx(built.grid, bg),
+               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+
+            "ods" ->
+              {:ok, Sheet.ods(built.grid, bg), "application/vnd.oasis.opendocument.spreadsheet"}
+          end
+
+        with {:ok, bytes, mime} <- result do
+          period =
+            [str(params, "from"), str(params, "to")]
+            |> Enum.join("-")
+            |> String.graphemes()
+            |> Enum.map_join(fn c ->
+              if String.match?(c, ~r/[A-Za-z0-9-]/), do: c, else: "_"
+            end)
+
+          {:ok, %{bytes: bytes, mime: mime, filename: "#{built.slug}-#{period}.#{format}"}}
+        end
+      end
+    end
   end
 
   def prepare(company_id, params) do

@@ -1,7 +1,7 @@
 defmodule BotyagaWeb.StockController do
   use BotyagaWeb, :controller
 
-  alias Botyaga.{Companies, Stock}
+  alias Botyaga.{Companies, Printing, Stock}
   alias Botyaga.Stock.{InternalDocs, MaterialIssues, Rules, Writeoff}
   alias BotyagaWeb.{Render, Respond}
 
@@ -156,6 +156,15 @@ defmodule BotyagaWeb.StockController do
     with {:ok, company_id} <- active(conn),
          {:ok, doc} <- InternalDocs.show(company_id, id) do
       Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_print(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, result} <- Printing.Idoc.build(company_id, id, Map.get(params, "format", "")) do
+      Respond.attachment(conn, result.bytes, Printing.mime(result.format), result.filename)
     else
       error -> Respond.error(conn, error)
     end

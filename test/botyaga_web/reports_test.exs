@@ -217,14 +217,22 @@ defmodule BotyagaWeb.ReportsTest do
       assert json_response(conn, 400)["detail"] == "from трябва да е преди to"
     end
 
-    test "експортът е отложен за фаза 9", %{conn: conn} do
+    test "експортът на файлове работи (xlsx), pdf иска sidecar", %{conn: conn} do
+      conn =
+        get(
+          conn,
+          "/v1/reports/export?kind=trial_balance&format=xlsx&from=2026-01-01&to=2026-12-31"
+        )
+
+      assert binary_part(response(conn, 200), 0, 2) == "PK"
+
       conn =
         get(
           conn,
           "/v1/reports/export?kind=trial_balance&format=pdf&from=2026-01-01&to=2026-12-31"
         )
 
-      assert json_response(conn, 501)["detail"] =~ "фаза 9"
+      assert json_response(conn, 503)["detail"] =~ "sidecar"
     end
   end
 end

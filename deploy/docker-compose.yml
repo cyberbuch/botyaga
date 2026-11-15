@@ -23,5 +23,14 @@ services:
       timeout: 5s
       retries: 10
 
+  # Chromium sidecar за PDF печат. BOTYAGA_PRINT_URL=http://localhost:8094
+  print:
+    build:
+      context: ./print
+    container_name: botyaga-print
+    restart: unless-stopped
+    ports:
+      - "${BOTYAGA_PRINT_PORT:-8094}:3000"
+
 volumes:
   botyaga_pgdata:

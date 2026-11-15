@@ -11,6 +11,9 @@ config :botyaga,
   ecto_repos: [Botyaga.Repo],
   generators: [timestamp_type: :utc_datetime]
 
+# PDF печатът минава през Chromium sidecar (Gotenberg). Празно = няма PDF.
+config :botyaga, :print_url, ""
+
 # Configure the endpoint
 config :botyaga, BotyagaWeb.Endpoint,
   url: [host: "localhost"],

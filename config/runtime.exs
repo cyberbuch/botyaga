@@ -20,6 +20,9 @@ if System.get_env("PHX_SERVER") do
   config :botyaga, BotyagaWeb.Endpoint, server: true
 end
 
+# Chromium sidecar за PDF печат (Gotenberg). Без него PDF връща 503.
+config :botyaga, :print_url, System.get_env("BOTYAGA_PRINT_URL") || ""
+
 config :botyaga, BotyagaWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: String.to_integer(System.get_env("PORT", "8093"))]
 
