@@ -138,6 +138,15 @@ defmodule BotyagaWeb.InvoicesController do
     end
   end
 
+  def ubl(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, result} <- Botyaga.Ubl.build(company_id, id) do
+      Respond.attachment(conn, result.xml, "application/xml; charset=utf-8", result.filename)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   defp active(conn) do
     case Companies.resolve_active(conn.assigns.current_user.username) do
       {:ok, company_id} -> {:ok, company_id}

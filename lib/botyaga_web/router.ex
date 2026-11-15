@@ -120,6 +120,7 @@ defmodule BotyagaWeb.Router do
     delete "/invoices/:id", InvoicesController, :delete
     post "/invoices/:id/post", InvoicesController, :post
     get "/invoices/:id/print", InvoicesController, :print
+    get "/invoices/:id/ubl", InvoicesController, :ubl
     post "/invoices/:id/issue-protocol", InvoicesController, :issue_protocol
     post "/invoices/:id/issue-customs", InvoicesController, :issue_customs
 
@@ -249,6 +250,10 @@ defmodule BotyagaWeb.Router do
     post "/saft/movement-mappings/defaults", SaftController, :mappings_defaults
     patch "/saft/movement-mappings/:id", SaftController, :mappings_update
     delete "/saft/movement-mappings/:id", SaftController, :mappings_delete
+
+    post "/scans/ubl", ScansController, :ubl
+    get "/product-name-mappings", PnmapController, :index
+    post "/product-name-mappings", PnmapController, :save
 
     match :*, "/*path", FallbackController, :fallback
   end
