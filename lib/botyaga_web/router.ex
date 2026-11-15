@@ -119,6 +119,8 @@ defmodule BotyagaWeb.Router do
     patch "/invoices/:id", InvoicesController, :update
     delete "/invoices/:id", InvoicesController, :delete
     post "/invoices/:id/post", InvoicesController, :post
+    post "/invoices/:id/issue-protocol", InvoicesController, :issue_protocol
+    post "/invoices/:id/issue-customs", InvoicesController, :issue_customs
 
     get "/journal", JournalController, :index
     post "/journal", JournalController, :create
@@ -131,6 +133,14 @@ defmodule BotyagaWeb.Router do
     get "/accounting-periods", PeriodsController, :index
     post "/accounting-periods/close", PeriodsController, :close
     post "/accounting-periods/reopen", PeriodsController, :reopen
+
+    get "/opening-balances", OpeningController, :index
+    post "/opening-balances", OpeningController, :create
+    patch "/opening-balances/:id", OpeningController, :update
+    delete "/opening-balances/:id", OpeningController, :delete
+
+    get "/closing-operations/preview", ClosingController, :preview
+    post "/closing-operations/run", ClosingController, :run
 
     match :*, "/*path", FallbackController, :fallback
   end

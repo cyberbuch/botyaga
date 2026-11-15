@@ -20,46 +20,7 @@ defmodule Botyaga.Invoicing do
          :ok <- check_in_duplicate(company_id, head, 0),
          {:ok, name} <- Lines.prepare(company_id, head, 0),
          :ok <- Lines.ensure_products(company_id, lines) do
-      {:ok, inv} =
-        Repo.transaction(fn ->
-          {net, vat, total} = Lines.totals(head, lines)
-
-          inv =
-            Repo.insert!(%Invoice{
-              company_id: company_id,
-              direction: head.direction,
-              document_type: head.document_type,
-              number: head.number,
-              issue_date: head.issue_date,
-              due_date: head.due_date,
-              counterpart_id: head.counterpart_id,
-              counterpart_name: name,
-              currency: head.currency,
-              net_amount: net,
-              vat_amount: vat,
-              total_amount: total,
-              status: "draft",
-              payment_method: head.payment_method,
-              notes: head.notes,
-              tax_event_date: head.tax_event_date,
-              accounting_month: head.accounting_month,
-              currency_rate: head.currency_rate,
-              discount_percent: head.discount_percent,
-              discount_amount: head.discount_amount,
-              vat_exemption_reason: head.vat_exemption_reason,
-              original_invoice_id: head.original_invoice_id,
-              location_id: head.location_id,
-              journal_entry_id: 0,
-              exclude_vat: head.exclude_vat,
-              vat_article: head.vat_article,
-              customs_statistical: head.customs_statistical,
-              customs_duty: head.customs_duty,
-              customs_vat: head.customs_vat
-            })
-
-          Lines.insert_lines(inv.id, company_id, lines)
-          inv
-        end)
+      {:ok, inv} = insert_header(company_id, head, name, lines)
 
       {:ok, after_value} = Read.detail(company_id, sub, inv.id)
       total = Map.get(after_value, :total_amount, "0.00")
@@ -306,6 +267,49 @@ defmodule Botyaga.Invoicing do
 
   def lines_of(invoice_id) do
     Repo.all(from(l in InvoiceLine, where: l.invoice_id == ^invoice_id, order_by: [asc: l.id]))
+  end
+
+  @doc "Запис на заглавие и редове в една транзакция. Ползва се и от специалните документи."
+  def insert_header(company_id, head, name, lines) do
+    Repo.transaction(fn ->
+      {net, vat, total} = Lines.totals(head, lines)
+
+      inv =
+        Repo.insert!(%Invoice{
+          company_id: company_id,
+          direction: head.direction,
+          document_type: head.document_type,
+          number: head.number,
+          issue_date: head.issue_date,
+          due_date: head.due_date,
+          counterpart_id: head.counterpart_id,
+          counterpart_name: name,
+          currency: head.currency,
+          net_amount: net,
+          vat_amount: vat,
+          total_amount: total,
+          status: "draft",
+          payment_method: head.payment_method,
+          notes: head.notes,
+          tax_event_date: head.tax_event_date,
+          accounting_month: head.accounting_month,
+          currency_rate: head.currency_rate,
+          discount_percent: head.discount_percent,
+          discount_amount: head.discount_amount,
+          vat_exemption_reason: head.vat_exemption_reason,
+          original_invoice_id: head.original_invoice_id,
+          location_id: head.location_id,
+          journal_entry_id: 0,
+          exclude_vat: head.exclude_vat,
+          vat_article: head.vat_article,
+          customs_statistical: head.customs_statistical,
+          customs_duty: head.customs_duty,
+          customs_vat: head.customs_vat
+        })
+
+      Lines.insert_lines(inv.id, company_id, lines)
+      inv
+    end)
   end
 
   defp editable(%Invoice{status: "posted"}),

@@ -96,6 +96,36 @@ defmodule BotyagaWeb.InvoicesController do
     end
   end
 
+  def issue_protocol(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, invoice} <-
+           Invoicing.Special.issue_protocol(
+             company_id,
+             conn.assigns.current_user.username,
+             id,
+             params
+           ) do
+      Respond.ok(conn, invoice, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def issue_customs(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, invoice} <-
+           Invoicing.Special.issue_customs(
+             company_id,
+             conn.assigns.current_user.username,
+             id,
+             params
+           ) do
+      Respond.ok(conn, invoice, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   defp active(conn) do
     case Companies.resolve_active(conn.assigns.current_user.username) do
       {:ok, company_id} -> {:ok, company_id}
