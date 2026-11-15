@@ -20,6 +20,7 @@ defmodule Botyaga.Audit do
         new_data
       ) do
     actor = actor(sub)
+    entity_id = to_id(entity_id)
 
     Repo.insert!(%Log{
       company_id: company_id,
@@ -38,6 +39,17 @@ defmodule Botyaga.Audit do
       created_at: Stamp.now()
     })
   end
+
+  defp to_id(value) when is_integer(value), do: value
+
+  defp to_id(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, _} -> n
+      :error -> 0
+    end
+  end
+
+  defp to_id(_), do: 0
 
   defp actor(sub) do
     case Accounts.get_by_login(sub) do

@@ -2,8 +2,8 @@ defmodule BotyagaWeb.StockController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Stock}
-  alias Botyaga.Stock.{Rules, Writeoff}
-  alias BotyagaWeb.Respond
+  alias Botyaga.Stock.{InternalDocs, MaterialIssues, Rules, Writeoff}
+  alias BotyagaWeb.{Render, Respond}
 
   def rules(conn, _params) do
     with {:ok, company_id} <- active(conn) do
@@ -62,6 +62,137 @@ defmodule BotyagaWeb.StockController do
   def at_location(conn, params) do
     with {:ok, company_id} <- active(conn) do
       Respond.ok(conn, Stock.at_location(company_id, params["location_id"]))
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Ръчно изписване на материали
+
+  def material_issues(conn, params) do
+    with {:ok, company_id} <- active(conn) do
+      company_id |> MaterialIssues.index() |> Render.page(params) |> then(&Respond.ok(conn, &1))
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_show(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- MaterialIssues.show(company_id, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_create(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           MaterialIssues.create(company_id, conn.assigns.current_user.username, params) do
+      Respond.ok(conn, doc, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_update(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           MaterialIssues.update(company_id, conn.assigns.current_user.username, id, params) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_delete(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, nil} <- MaterialIssues.delete(company_id, conn.assigns.current_user.username, id) do
+      Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_confirm(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- MaterialIssues.confirm(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def material_issue_unpost(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- MaterialIssues.unpost(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Вътрешни протоколи
+
+  def internal_doc_next_number(conn, _params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, data} <- InternalDocs.next_number(company_id) do
+      Respond.ok(conn, data)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_docs(conn, params) do
+    with {:ok, company_id} <- active(conn) do
+      company_id |> InternalDocs.index() |> Render.page(params) |> then(&Respond.ok(conn, &1))
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_show(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- InternalDocs.show(company_id, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_create(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- InternalDocs.create(company_id, conn.assigns.current_user.username, params) do
+      Respond.ok(conn, doc, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_update(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           InternalDocs.update(company_id, conn.assigns.current_user.username, id, params) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_delete(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, nil} <- InternalDocs.delete(company_id, conn.assigns.current_user.username, id) do
+      Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def internal_doc_confirm(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- InternalDocs.confirm(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, doc)
     else
       error -> Respond.error(conn, error)
     end

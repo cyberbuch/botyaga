@@ -196,6 +196,41 @@ defmodule BotyagaWeb.Router do
     get "/stock/report", StockController, :report
     get "/inventory/at-location", StockController, :at_location
 
+    get "/material-issues", StockController, :material_issues
+    post "/material-issues", StockController, :material_issue_create
+    get "/material-issues/:id", StockController, :material_issue_show
+    patch "/material-issues/:id", StockController, :material_issue_update
+    delete "/material-issues/:id", StockController, :material_issue_delete
+    post "/material-issues/:id/confirm", StockController, :material_issue_confirm
+    post "/material-issues/:id/unpost", StockController, :material_issue_unpost
+
+    get "/internal-docs/next-number", StockController, :internal_doc_next_number
+    get "/internal-docs", StockController, :internal_docs
+    post "/internal-docs", StockController, :internal_doc_create
+    get "/internal-docs/:id", StockController, :internal_doc_show
+    patch "/internal-docs/:id", StockController, :internal_doc_update
+    delete "/internal-docs/:id", StockController, :internal_doc_delete
+    post "/internal-docs/:id/confirm", StockController, :internal_doc_confirm
+
+    get "/recipes", ProductionController, :recipes
+    post "/recipes", ProductionController, :recipe_create
+    get "/recipes/:id", ProductionController, :recipe_show
+    patch "/recipes/:id", ProductionController, :recipe_update
+    delete "/recipes/:id", ProductionController, :recipe_delete
+
+    get "/production-orders", ProductionController, :orders
+    post "/production-orders", ProductionController, :order_create
+    get "/production-orders/:id", ProductionController, :order_show
+    delete "/production-orders/:id", ProductionController, :order_delete
+    post "/production-orders/:id/confirm", ProductionController, :order_confirm
+
+    get "/dividend-distributions", DividendsController, :index
+    post "/dividend-distributions", DividendsController, :create
+    get "/dividend-distributions/:id", DividendsController, :show
+    patch "/dividend-distributions/:id", DividendsController, :update
+    delete "/dividend-distributions/:id", DividendsController, :delete
+    post "/dividends/:id/pay", DividendsController, :pay
+
     match :*, "/*path", FallbackController, :fallback
   end
 
