@@ -148,6 +148,46 @@ defmodule BotyagaWeb.Router do
     put "/vat/manual", VatController, :manual_save
     get "/vat-exemptions", VatController, :exemptions
 
+    get "/bank-accounts", BankingController, :index
+    post "/bank-accounts", BankingController, :create
+    patch "/bank-accounts/:id", BankingController, :update
+    delete "/bank-accounts/:id", BankingController, :delete
+
+    get "/bank-transactions", BankingController, :transactions
+    post "/bank-transactions/preview", BankingController, :preview
+    post "/bank-transactions/import", BankingController, :import
+    post "/bank-transactions/bulk/delete", BankingController, :bulk_delete_transactions
+    post "/bank-transactions/auto-allocate", BankingController, :auto_allocate
+    post "/bank-transactions/auto-allocate/preview", BankingController, :allocate_preview
+    post "/bank-transactions/:id/book", BankingController, :book
+    post "/bank-transactions/:id/reallocate", BankingController, :reallocate
+    delete "/bank-transactions/:id", BankingController, :delete_transaction
+
+    get "/bank-matching-rules", BankingController, :rules
+    post "/bank-matching-rules", BankingController, :create_rule
+    post "/bank-matching-rules/defaults", BankingController, :rule_defaults
+    patch "/bank-matching-rules/:id", BankingController, :update_rule
+    delete "/bank-matching-rules/:id", BankingController, :delete_rule
+
+    get "/fixed-asset-categories", AssetsController, :categories
+    post "/fixed-asset-categories", AssetsController, :category_create
+    patch "/fixed-asset-categories/:id", AssetsController, :category_update
+    delete "/fixed-asset-categories/:id", AssetsController, :category_delete
+
+    get "/fixed-assets", AssetsController, :index
+    post "/fixed-assets", AssetsController, :create
+    post "/fixed-assets/depreciation/preview", AssetsController, :depreciation_preview
+    post "/fixed-assets/depreciation/post", AssetsController, :depreciation_post
+    get "/fixed-assets/:id", AssetsController, :show
+    patch "/fixed-assets/:id", AssetsController, :update
+    delete "/fixed-assets/:id", AssetsController, :delete
+    post "/fixed-assets/:id/revalue", AssetsController, :revalue
+    post "/fixed-assets/:id/move", AssetsController, :move
+    post "/fixed-assets/:id/conserve", AssetsController, :conserve
+    post "/fixed-assets/:id/end-conserve", AssetsController, :end_conserve
+    post "/fixed-assets/:id/dispose", AssetsController, :dispose
+    get "/fixed-assets/:id/events", AssetsController, :events
+
     match :*, "/*path", FallbackController, :fallback
   end
 
