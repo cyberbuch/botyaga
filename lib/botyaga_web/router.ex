@@ -231,6 +231,16 @@ defmodule BotyagaWeb.Router do
     delete "/dividend-distributions/:id", DividendsController, :delete
     post "/dividends/:id/pay", DividendsController, :pay
 
+    get "/reports", ReportsController, :index
+    get "/reports/export", ReportsController, :export
+
+    get "/fs/lines", FsController, :lines
+    get "/fs/formulas", FsController, :index
+    put "/fs/formulas", FsController, :put
+    post "/fs/formulas/defaults", FsController, :defaults
+    post "/fs/formulas/validate", FsController, :validate
+    post "/fs/formulas/clear", FsController, :clear
+
     match :*, "/*path", FallbackController, :fallback
   end
 
