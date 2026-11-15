@@ -10,10 +10,10 @@ defmodule Botyaga.Application do
     children = [
       BotyagaWeb.Telemetry,
       Botyaga.Repo,
+      Botyaga.RateLimit,
+      Botyaga.Bootstrap,
       {DNSCluster, query: Application.get_env(:botyaga, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Botyaga.PubSub},
-      # Start a worker by calling: Botyaga.Worker.start_link(arg)
-      # {Botyaga.Worker, arg},
       # Start to serve requests, typically the last entry
       BotyagaWeb.Endpoint
     ]

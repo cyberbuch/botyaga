@@ -33,6 +33,19 @@ defmodule BotyagaWeb.ConnCase do
 
   setup tags do
     Botyaga.DataCase.setup_sandbox(tags)
+    Botyaga.RateLimit.reset()
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  @doc "Връзка с токен на потребителя — токенът е същият формат като на продукция."
+  def auth_conn(conn, %Botyaga.Accounts.User{} = user) do
+    token =
+      Botyaga.Accounts.JWT.issue(
+        Application.get_env(:botyaga, :jwt_secret),
+        user.username,
+        user.session_version
+      )
+
+    Plug.Conn.put_req_header(conn, "authorization", "Bearer #{token}")
   end
 end

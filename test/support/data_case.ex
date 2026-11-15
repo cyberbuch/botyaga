@@ -29,6 +29,7 @@ defmodule Botyaga.DataCase do
 
   setup tags do
     Botyaga.DataCase.setup_sandbox(tags)
+    Botyaga.RateLimit.reset()
     :ok
   end
 
