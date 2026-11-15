@@ -26,5 +26,12 @@ defmodule Botyaga.Invoicing.Invoice do
     field :original_invoice_id, :id
     field :location_id, :id
     field :journal_entry_id, :id
+    field :exclude_vat, :integer, default: 0
+    field :vat_article, :string
+    field :customs_statistical, :string
+    field :customs_duty, :string
+    field :customs_vat, :string
+
+    timestamps(type: :utc_datetime)
   end
 end

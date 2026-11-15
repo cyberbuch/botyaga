@@ -109,6 +109,29 @@ defmodule BotyagaWeb.Router do
     get "/saft/nomenclatures", CatalogController, :nomenclatures
     get "/units", CatalogController, :units
 
+    get "/invoices", InvoicesController, :index
+    post "/invoices", InvoicesController, :create
+    get "/invoices/next-number", InvoicesController, :next_number
+    post "/invoices/bulk/post", InvoicesController, :bulk_post
+    post "/invoices/bulk/unpost", InvoicesController, :bulk_unpost
+    post "/invoices/bulk/delete", InvoicesController, :bulk_delete
+    get "/invoices/:id", InvoicesController, :show
+    patch "/invoices/:id", InvoicesController, :update
+    delete "/invoices/:id", InvoicesController, :delete
+    post "/invoices/:id/post", InvoicesController, :post
+
+    get "/journal", JournalController, :index
+    post "/journal", JournalController, :create
+    post "/journal/bulk/delete", JournalController, :bulk_delete
+    get "/journal/:id", JournalController, :show
+    put "/journal/:id", JournalController, :update
+    patch "/journal/:id", JournalController, :update
+    delete "/journal/:id", JournalController, :delete
+
+    get "/accounting-periods", PeriodsController, :index
+    post "/accounting-periods/close", PeriodsController, :close
+    post "/accounting-periods/reopen", PeriodsController, :reopen
+
     match :*, "/*path", FallbackController, :fallback
   end
 

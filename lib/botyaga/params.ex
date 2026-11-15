@@ -60,6 +60,49 @@ defmodule Botyaga.Params do
 
   def id(_), do: 0
 
+  @doc "Списък с id-та за групова операция: непразен, до 500, положителни числа."
+  def bulk_ids(params) do
+    case Map.get(params, "ids") do
+      nil ->
+        {:error, {400, "липсва ids"}}
+
+      arr when is_list(arr) ->
+        cond do
+          arr == [] -> {:error, {400, "ids е празен"}}
+          length(arr) > 500 -> {:error, {400, "ids е твърде дълъг (макс 500)"}}
+          true -> parse_ids(arr, 0, [])
+        end
+
+      _ ->
+        {:error, {400, "ids трябва да е масив"}}
+    end
+  end
+
+  defp parse_ids([], _index, acc), do: {:ok, Enum.reverse(acc)}
+
+  defp parse_ids([value | rest], index, acc) do
+    number =
+      cond do
+        is_integer(value) ->
+          value
+
+        is_binary(value) ->
+          case Integer.parse(String.trim(value)) do
+            {n, ""} -> n
+            _ -> nil
+          end
+
+        true ->
+          nil
+      end
+
+    if is_nil(number) or number <= 0 do
+      {:error, {400, "ids[#{index}] не е число"}}
+    else
+      parse_ids(rest, index + 1, [number | acc])
+    end
+  end
+
   defp fetch(params, key) when is_binary(key) do
     case Map.fetch(params, key) do
       {:ok, v} ->
