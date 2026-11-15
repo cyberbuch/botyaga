@@ -1,0 +1,57 @@
+stages:
+  - test
+  - release
+
+variables:
+  MIX_ENV: test
+  BOTYAGA_DB_HOST: 127.0.0.1
+  BOTYAGA_DB_PORT: 5432
+  BOTYAGA_DB_USER: postgres
+  BOTYAGA_DB_PASSWORD: postgres
+
+default:
+  image: elixir:1.18-otp-27
+
+cache:
+  key:
+    files:
+      - mix.lock
+  paths:
+    - deps
+    - _build
+
+services:
+  - name: postgres:17
+    alias: postgres
+
+.test_base: &test_base
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git > /dev/null
+    - mix local.hex --force && mix local.rebar --force
+    - mix deps.get
+
+test:
+  <<: *test_base
+  stage: test
+  script:
+    - ./scripts/filesize.sh
+    - mix precommit
+
+release:
+  stage: release
+  image: elixir:1.18-otp-27
+  variables:
+    MIX_ENV: prod
+  before_script:
+    - mix local.hex --force && mix local.rebar --force
+    - mix deps.get
+  script:
+    - mix compile
+    - mix release
+  artifacts:
+    name: botyaga-release
+    paths:
+      - _build/prod/botyaga-*.tar.gz
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG

@@ -1,0 +1,27 @@
+# Локална разработка: PostgreSQL на 127.0.0.1:5433 (локалният сървър е на 5432).
+# Приложението се пуска на хоста с `mix phx.server`, базата е в контейнера.
+# Продукционен вариант на този файл се ползва на VPS-а заедно с release-а.
+
+name: botyaga
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: botyaga-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${BOTYAGA_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${BOTYAGA_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${BOTYAGA_DB_NAME:-botyaga_dev}
+    ports:
+      - "${BOTYAGA_DB_PORT:-5433}:5432"
+    volumes:
+      - botyaga_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${BOTYAGA_DB_USER:-postgres} -d ${BOTYAGA_DB_NAME:-botyaga_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  botyaga_pgdata:
