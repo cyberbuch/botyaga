@@ -241,6 +241,13 @@ defmodule BotyagaWeb.Router do
     post "/fs/formulas/validate", FsController, :validate
     post "/fs/formulas/clear", FsController, :clear
 
+    get "/saft/export", SaftController, :export
+    get "/saft/movement-mappings", SaftController, :mappings_index
+    post "/saft/movement-mappings", SaftController, :mappings_create
+    post "/saft/movement-mappings/defaults", SaftController, :mappings_defaults
+    patch "/saft/movement-mappings/:id", SaftController, :mappings_update
+    delete "/saft/movement-mappings/:id", SaftController, :mappings_delete
+
     match :*, "/*path", FallbackController, :fallback
   end
 
