@@ -95,6 +95,8 @@ defmodule BotyagaWeb.Router do
 
     get "/counterparts", CatalogController, :counterparts
     post "/counterparts", CatalogController, :counterpart_create
+    get "/counterparts/vies-lookup", ViesController, :lookup
+    post "/counterparts/vies", ViesController, :create
     get "/counterparts/:id", CatalogController, :counterpart_show
     patch "/counterparts/:id", CatalogController, :counterpart_update
     delete "/counterparts/:id", CatalogController, :counterpart_delete
@@ -252,8 +254,16 @@ defmodule BotyagaWeb.Router do
     delete "/saft/movement-mappings/:id", SaftController, :mappings_delete
 
     post "/scans/ubl", ScansController, :ubl
+    post "/scans/extract", ScansController, :extract
     get "/product-name-mappings", PnmapController, :index
     post "/product-name-mappings", PnmapController, :save
+
+    get "/exchange-rates", RatesController, :index
+    get "/exchange-rates/rate", RatesController, :rate
+    get "/exchange-rates/cross", RatesController, :cross
+    post "/exchange-rates/import", RatesController, :import
+
+    post "/addresses/parse", AddressesController, :parse
 
     match :*, "/*path", FallbackController, :fallback
   end
