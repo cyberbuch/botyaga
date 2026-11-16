@@ -18,7 +18,7 @@ defmodule Botyaga.Printing.Pdf do
 
   defp request(url, html) do
     Req.post(url <> "/forms/chromium/convert/html",
-      form_multipart: [files: {"index.html", html, "text/html"}],
+      form_multipart: [{"files", {html, [filename: "index.html", content_type: "text/html"]}}],
       retry: false,
       receive_timeout: 30_000
     )

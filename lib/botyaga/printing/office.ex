@@ -50,7 +50,11 @@ defmodule Botyaga.Printing.Office do
 
   defp table(rows, totals?) do
     cols = rows |> Enum.map(&length/1) |> Enum.max(fn -> 0 end)
-    grid = Enum.map_join(1..max(cols, 1), fn _ -> ~s(<w:gridCol w:w="2800"/>) end)
+    n = max(cols, 1)
+    # A4 (11906 twips) минус полета 14mm×2 (1588) = 10318; totals са 60%.
+    avail = if totals?, do: 6190, else: 10318
+    col_w = div(avail, n)
+    grid = Enum.map_join(1..n, fn _ -> ~s(<w:gridCol w:w="#{col_w}"/>) end)
 
     borders =
       if totals?,
@@ -80,23 +84,23 @@ defmodule Botyaga.Printing.Office do
           |> Enum.map_join(fn {cell, ci} ->
             header? = not totals? and ri == 0
             right? = totals? and ci + 1 == length(row)
-            cell_xml(cell, header?, right?)
+            cell_xml(cell, header?, right?, col_w)
           end)
 
         "<w:tr>#{cells}</w:tr>"
       end)
 
-    "<w:tbl><w:tblPr>#{width}#{jc}<w:tblBorders>#{borders}</w:tblBorders></w:tblPr>" <>
+    "<w:tbl><w:tblPr>#{width}#{jc}<w:tblLayout w:type=\"autofit\"/><w:tblBorders>#{borders}</w:tblBorders></w:tblPr>" <>
       "<w:tblGrid>#{grid}</w:tblGrid>#{trs}</w:tbl>"
   end
 
-  defp cell_xml(text, header?, right?) do
+  defp cell_xml(text, header?, right?, col_w) do
     shade = if header?, do: ~s(<w:shd w:val="clear" w:fill="EEF6F2"/>), else: ""
     jc = if right?, do: ~s(<w:jc w:val="right"/>), else: ""
     bold = if header?, do: "<w:b/>", else: ""
     rpr = "#{bold}<w:sz w:val=\"20\"/><w:rFonts w:ascii=\"#{@font}\" w:hAnsi=\"#{@font}\"/>"
 
-    "<w:tc><w:tcPr>#{shade}</w:tcPr>" <>
+    "<w:tc><w:tcPr><w:tcW w:w=\"#{col_w}\" w:type=\"dxa\"/>#{shade}</w:tcPr>" <>
       "<w:p><w:pPr>#{jc}<w:rPr>#{bold}<w:sz w:val=\"20\"/></w:rPr></w:pPr>" <>
       "<w:r><w:rPr>#{rpr}</w:rPr><w:t xml:space=\"preserve\">#{esc(text)}</w:t></w:r></w:p></w:tc>"
   end
