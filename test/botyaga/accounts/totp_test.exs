@@ -39,9 +39,9 @@ defmodule Botyaga.Accounts.TotpTest do
   describe "otpauth_uri/2 и qr_svg/1" do
     test "URI е по RFC и носи издателя" do
       uri = Totp.otpauth_uri(@secret, "ivan@baga.example")
-      assert uri =~ "otpauth://totp/ytbuch:ivan%40baga.example"
+      assert uri =~ "otpauth://totp/botyaga:ivan%40baga.example"
       assert uri =~ "secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
-      assert uri =~ "issuer=ytbuch"
+      assert uri =~ "issuer=botyaga"
       assert uri =~ "algorithm=SHA1&digits=6&period=30"
     end
 

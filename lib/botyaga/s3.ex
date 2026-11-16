@@ -138,12 +138,12 @@ defmodule Botyaga.S3 do
       else: :erlang.float_to_binary(size / 1_048_576, decimals: 1) <> " MB"
   end
 
-  @doc "Строг шаблон: ytbuch_backup_*.sql.gz и ydb_backup_*.tar.gz, без пътища и .."
+  @doc "Строг шаблон: botyaga_backup_*.sql.gz и ydb_backup_*.tar.gz, без пътища и .."
   def is_backup_name(name) do
     stem =
       cond do
-        String.starts_with?(name, "ytbuch_backup_") ->
-          rest = String.replace_prefix(name, "ytbuch_backup_", "")
+        String.starts_with?(name, "botyaga_backup_") ->
+          rest = String.replace_prefix(name, "botyaga_backup_", "")
           if String.ends_with?(rest, ".sql.gz"), do: String.replace_suffix(rest, ".sql.gz", "")
 
         String.starts_with?(name, "ydb_backup_") ->

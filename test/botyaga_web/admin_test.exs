@@ -94,10 +94,10 @@ defmodule BotyagaWeb.AdminTest do
       assert json_response(conn, 422)["detail"] == "s3_key е задължителен"
 
       conn = post(conn, "/v1/system-settings/s3-delete", %{"s3_key" => "other/file.txt"})
-      assert json_response(conn, 400)["detail"] == "ключът не е в папката на ytbuch"
+      assert json_response(conn, 400)["detail"] == "ключът не е в папката на botyaga"
 
       conn = post(conn, "/v1/system-settings/s3-delete", %{"s3_key" => "backups/notes.txt"})
-      assert json_response(conn, 400)["detail"] == "ключът не е архив на ytbuch"
+      assert json_response(conn, 400)["detail"] == "ключът не е архив на botyaga"
     end
   end
 end

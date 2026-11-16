@@ -304,7 +304,7 @@ defmodule Botyaga.Saft.Moves do
   end
 
   defp move_xml(s, m) do
-    soft = or_clip(s.company.soft_name, 70, "ytbuch")
+    soft = or_clip(s.company.soft_name, 70, "botyaga")
 
     lines =
       Enum.map_join(m.lines, fn l ->

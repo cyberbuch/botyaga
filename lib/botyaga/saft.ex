@@ -143,8 +143,8 @@ defmodule Botyaga.Saft do
       Xml.text("AuditFileCountry", "BG") <>
       region_xml <>
       Xml.text("AuditFileDateCreated", period) <>
-      Xml.text("SoftwareCompanyName", filled(c.soft_name, "ytbuch", 70)) <>
-      Xml.text("SoftwareID", filled(c.soft_id, "YTBUCH", 256)) <>
+      Xml.text("SoftwareCompanyName", filled(c.soft_name, "botyaga", 70)) <>
+      Xml.text("SoftwareID", filled(c.soft_id, "BOTYAGA", 256)) <>
       Xml.text("SoftwareVersion", filled(c.soft_ver, "1.0", 18)) <>
       company_xml(c) <>
       Ownership.ownership(s) <>

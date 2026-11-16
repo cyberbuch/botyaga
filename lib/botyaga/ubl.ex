@@ -90,7 +90,7 @@ defmodule Botyaga.Ubl do
       out <>
         open("AdditionalDocumentReference") <>
         cbc("ID", "Software") <>
-        cbc("DocumentDescription", "ytbuch") <>
+        cbc("DocumentDescription", "botyaga") <>
         close("AdditionalDocumentReference")
 
     out =

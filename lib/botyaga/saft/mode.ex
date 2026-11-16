@@ -115,7 +115,7 @@ defmodule Botyaga.Saft.Mode do
       Xml.text("PaymentMethod", "03") <>
       Xml.text("Description", m.desc) <>
       Xml.text("SystemID", m.refno) <>
-      Xml.text("SourceID", "ytbuch") <>
+      Xml.text("SourceID", "botyaga") <>
       Xml.open("PaymentLine") <>
       Xml.text("LineNumber", "1") <>
       Xml.opt("SourceDocumentID", m.source) <>

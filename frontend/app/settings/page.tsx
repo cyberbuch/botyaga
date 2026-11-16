@@ -135,8 +135,8 @@ function SettingsInner() {
       inventory_valuation_method: str(c.inventory_valuation_method, "WAC"),
       is_part_of_group: str(c.is_part_of_group),
       tax_entity: str(c.tax_entity),
-      software_company_name: str(c.software_company_name, "ytbuch"),
-      software_id: str(c.software_id, "BAGABUCH"),
+      software_company_name: str(c.software_company_name, "botyaga"),
+      software_id: str(c.software_id, "BOTYAGA"),
       software_version: str(c.software_version, "1.0"),
     });
     const raw = str(c.settings, "{}");

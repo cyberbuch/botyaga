@@ -1,10 +1,10 @@
 defmodule Botyaga.Accounts.JWT do
   @moduledoc """
-  JWT HS256 с твърденията на ytbuch: `sub`, `iat`, `exp`, `iss`, `mfa`, `ver`.
-  Издателят е `ytbuch`, защото токените трябва да влизат в същия формат.
+  JWT HS256 с твърденията `sub`, `iat`, `exp`, `iss`, `mfa`, `ver` (форматът на
+  ytbuch). Издателят е `botyaga`.
   """
 
-  @iss "ytbuch"
+  @iss "botyaga"
   @ttl 604_800
   @mfa_ttl 300
 

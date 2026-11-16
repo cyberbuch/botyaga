@@ -1,6 +1,6 @@
 defmodule Botyaga.Backup do
   @moduledoc """
-  Логически бекъп: `pg_dump` → gzip → S3 (`ytbuch_backup_*.sql.gz` форматът се
+  Логически бекъп: `pg_dump` → gzip → S3 (`botyaga_backup_*.sql.gz` форматът се
   запазва). Порт на `s3store.rs#s3_backup` + `dump.rs`. За Postgres няма MUPIP
   архив (това е YottaDB-специфично) — pg_dump покрива цялата база.
   """
@@ -11,7 +11,7 @@ defmodule Botyaga.Backup do
     with :ok <- S3.validate(cfg),
          {:ok, sql, tables} <- dump() do
       stamp = Calendar.strftime(DateTime.utc_now(), "%Y%m%d_%H%M%S")
-      filename = "ytbuch_backup_#{stamp}.sql.gz"
+      filename = "botyaga_backup_#{stamp}.sql.gz"
       key = cfg.prefix <> filename
       bytes = :zlib.gzip(sql)
 
@@ -40,10 +40,10 @@ defmodule Botyaga.Backup do
         {:error, {422, "s3_key е задължителен"}}
 
       not String.starts_with?(key, cfg.prefix) ->
-        {:error, {400, "ключът не е в папката на ytbuch"}}
+        {:error, {400, "ключът не е в папката на botyaga"}}
 
       not S3.is_backup_name(String.replace_prefix(key, cfg.prefix, "")) ->
-        {:error, {400, "ключът не е архив на ytbuch"}}
+        {:error, {400, "ключът не е архив на botyaga"}}
 
       true ->
         S3.delete(cfg, key)

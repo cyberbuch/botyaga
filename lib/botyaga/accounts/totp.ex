@@ -53,9 +53,9 @@ defmodule Botyaga.Accounts.Totp do
   end
 
   def otpauth_uri(secret_b32, account) do
-    label = "#{pct("ytbuch")}:#{pct(account)}"
+    label = "#{pct("botyaga")}:#{pct(account)}"
 
-    "otpauth://totp/#{label}?secret=#{secret_b32}&issuer=#{pct("ytbuch")}&algorithm=SHA1&digits=6&period=30"
+    "otpauth://totp/#{label}?secret=#{secret_b32}&issuer=#{pct("botyaga")}&algorithm=SHA1&digits=6&period=30"
   end
 
   @doc "QR като SVG от матрицата на EQRCode — с тивата зона от 4 модула."

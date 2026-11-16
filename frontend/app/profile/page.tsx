@@ -28,7 +28,7 @@ function tabOf(raw: string | null): Tab {
 
 function downloadCodes(codes: string[]) {
   const text = [
-    "ytbuch резервни кодове",
+    "botyaga резервни кодове",
     "Всеки код е за едно ползване. Пазят се извън сървъра.",
     "",
     ...codes,
@@ -38,7 +38,7 @@ function downloadCodes(codes: string[]) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "ytbuch-recovery-codes.txt";
+  a.download = "botyaga-recovery-codes.txt";
   a.click();
   URL.revokeObjectURL(url);
 }

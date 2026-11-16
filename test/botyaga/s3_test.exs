@@ -56,11 +56,11 @@ defmodule Botyaga.S3Test do
   end
 
   test "backup names are strict" do
-    assert S3.is_backup_name("ytbuch_backup_20261027_221035.sql.gz")
+    assert S3.is_backup_name("botyaga_backup_20261027_221035.sql.gz")
     assert S3.is_backup_name("ydb_backup_2026-10-27.tar.gz")
-    refute S3.is_backup_name("my_ytbuch_backup_notes.txt")
-    refute S3.is_backup_name("ytbuch_backup_.sql.gz")
-    refute S3.is_backup_name("ytbuch_backup_a/../../etc.sql.gz")
+    refute S3.is_backup_name("my_botyaga_backup_notes.txt")
+    refute S3.is_backup_name("botyaga_backup_.sql.gz")
+    refute S3.is_backup_name("botyaga_backup_a/../../etc.sql.gz")
     refute S3.is_backup_name("ydb_backup_x.tar.gz/../../obj")
     refute S3.is_backup_name("other.txt")
   end
