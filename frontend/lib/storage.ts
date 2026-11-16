@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 
-const CHANGE_EVENT = "bagabuch-storage-change";
+const CHANGE_EVENT = "botyaga-storage-change";
 
 export function subscribeStorage(callback: () => void): () => void {
   return subscribe(callback);

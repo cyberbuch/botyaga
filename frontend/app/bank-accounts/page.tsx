@@ -1,7 +1,7 @@
 "use client";
 
 // Банкови сметки: CRUD + избор на счетоводна (ГЛ) и буферна сметка.
-// Порт на secret/su-doxis bank_accounts.rs върху bagabuch REST API.
+// Порт на secret/su-doxis bank_accounts.rs върху botyaga REST API.
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "../../components/RequireAuth";

@@ -17,14 +17,14 @@ function themeInitScript(): string {
   return `
 (function () {
   try {
-    var t = localStorage.getItem("bagabuch.theme");
+    var t = localStorage.getItem("botyaga.theme");
     if (t !== "dark" && t !== "light") {
       t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
         : "light";
     }
     document.documentElement.dataset.theme = t;
-    var l = localStorage.getItem("bagabuch.lang");
+    var l = localStorage.getItem("botyaga.lang");
     if (l === "bg" || l === "en") document.documentElement.lang = l;
     else document.documentElement.lang = "bg";
   } catch (e) {}

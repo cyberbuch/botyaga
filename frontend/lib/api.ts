@@ -1,10 +1,10 @@
-// lib/api.ts — HTTP клиент към bagabuch backend-а (:8080) с JWT.
+// lib/api.ts — HTTP клиент към botyaga backend-а (:8093) с JWT.
 
 import { readStorage, writeStorage } from "./storage";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
 
-export const TOKEN_KEY = "bagabuch.token";
+export const TOKEN_KEY = "botyaga.token";
 
 export function getToken(): string | null {
   return readStorage(TOKEN_KEY);
@@ -286,7 +286,7 @@ export interface Company {
 
 // активна фирма (мултитенант)
 // Събитие, на което хедърът слуша, за да обнови активната фирма.
-export const ACTIVE_COMPANY_EVENT = "bagabuch-active-company-changed";
+export const ACTIVE_COMPANY_EVENT = "botyaga-active-company-changed";
 
 export function getActiveCompany(): Promise<Company | Record<string, never>> {
   return api.get<Company | Record<string, never>>("/v1/active-company");

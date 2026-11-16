@@ -35,8 +35,8 @@ import {
 } from "./types";
 
 const MAX_BYTES = 8 * 1024 * 1024;
-const SCAN_DIR_KEY = "bagabuch.scan.direction";
-const SCAN_PERIOD_KEY = "bagabuch.scan.period";
+const SCAN_DIR_KEY = "botyaga.scan.direction";
+const SCAN_PERIOD_KEY = "botyaga.scan.period";
 
 function monthNow(): string {
   return todayIso().slice(0, 7);

@@ -14,7 +14,7 @@ import {
 import { DEFAULT_LANG, Lang, translate } from "../lib/i18n";
 import { subscribeStorage, writeStorage } from "../lib/storage";
 
-const LANG_KEY = "bagabuch.lang";
+const LANG_KEY = "botyaga.lang";
 
 interface I18nContextValue {
   lang: Lang;
