@@ -21,7 +21,7 @@ defmodule Botyaga.RateLimit do
 
   @doc "Връща `:allow` или `{:deny, retry_after_ms}`."
   def check(key, burst, per_sec) do
-    now = System.monotonic_time(:millisecond)
+    now = System.system_time(:millisecond)
     sweep()
 
     tokens =
@@ -41,17 +41,17 @@ defmodule Botyaga.RateLimit do
 
   def login_locked(login) do
     key = {:login, String.downcase(String.trim(login))}
-    now = System.monotonic_time(:millisecond)
+    now = System.system_time(:millisecond)
 
     case :ets.lookup(@table, key) do
-      [{_, _fails, until}] when until > now -> div(until - now, 1000)
+      [{_, _fails, until}] when until > now -> div(min(until - now, @lock_ms), 1000)
       _ -> nil
     end
   end
 
   def login_failure(login) do
     key = {:login, String.downcase(String.trim(login))}
-    now = System.monotonic_time(:millisecond)
+    now = System.system_time(:millisecond)
 
     {fails, until} =
       case :ets.lookup(@table, key) do
@@ -76,7 +76,7 @@ defmodule Botyaga.RateLimit do
 
   defp sweep do
     if :ets.info(@table, :size) > @max_tracked do
-      now = System.monotonic_time(:millisecond)
+      now = System.system_time(:millisecond)
 
       :ets.select_delete(@table, [
         {{{:login, :_}, :_, :"$1"}, [{:<, :"$1", now}], [true]}

@@ -47,6 +47,9 @@ services:
       PORT: 8093
       # SECRET_KEY_BASE се генерира в entrypoint-а при липса (dev/test).
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+      # Superadmin парола при празна база. Без стойност → еднократна парола в
+      # лога (docker logs botyaga-backend). Задай силна парола през env.
+      BOTYAGA_SUPERADMIN_PASSWORD: ${BOTYAGA_SUPERADMIN_PASSWORD:-}
     ports:
       - "8093:8093"
     depends_on:
