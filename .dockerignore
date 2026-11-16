@@ -1,0 +1,9 @@
+.git
+_build
+deps
+frontend
+node_modules
+*.tar.gz
+.elixir_ls
+cover
+doc

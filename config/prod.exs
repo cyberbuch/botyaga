@@ -3,12 +3,14 @@ import Config
 # Force using SSL in production. This also sets the "strict-security-transport" header,
 # known as HSTS. If you have a health check endpoint, you may want to exclude it below.
 # Note `:force_ssl` is required to be set at compile-time.
+# `backend` е изключен: Next.js proxy-то в контейнерния стек говори http към
+# backend-а с Host: backend. force_ssl остава активен за външните host-ове.
 config :botyaga, BotyagaWeb.Endpoint,
   force_ssl: [
     rewrite_on: [:x_forwarded_proto],
     exclude: [
       # paths: ["/health"],
-      hosts: ["localhost", "127.0.0.1"]
+      hosts: ["localhost", "127.0.0.1", "backend"]
     ]
   ]
 

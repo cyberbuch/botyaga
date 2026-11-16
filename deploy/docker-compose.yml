@@ -1,6 +1,8 @@
-# Локална разработка: PostgreSQL на 127.0.0.1:5433 (локалният сървър е на 5432).
-# Приложението се пуска на хоста с `mix phx.server`, базата е в контейнера.
-# Продукционен вариант на този файл се ползва на VPS-а заедно с release-а.
+# Пълен локален стек на botyaga: PostgreSQL + Chromium sidecar (PDF) +
+# Elixir API (release) + Next.js интерфейс. Самостоятелен — фронтендът е
+# копиран в ./frontend. От корена на botyaga:
+#   docker compose -f deploy/docker-compose.yml up -d --build
+# API :8093, интерфейс :3021, PostgreSQL :5433, print sidecar :8094.
 
 name: botyaga
 
@@ -23,7 +25,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Chromium sidecar за PDF печат. BOTYAGA_PRINT_URL=http://localhost:8094
+  # Chromium sidecar за PDF печат (Gotenberg + DejaVu).
   print:
     build:
       context: ./print
@@ -31,6 +33,54 @@ services:
     restart: unless-stopped
     ports:
       - "${BOTYAGA_PRINT_PORT:-8094}:3000"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: botyaga-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ecto://${BOTYAGA_DB_USER:-postgres}:${BOTYAGA_DB_PASSWORD:-postgres}@postgres:5432/${BOTYAGA_DB_NAME:-botyaga_dev}
+      BOTYAGA_PRINT_URL: http://print:3000
+      PHX_HOST: ${PHX_HOST:-localhost}
+      PORT: 8093
+      # SECRET_KEY_BASE се генерира в entrypoint-а при липса (dev/test).
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+    ports:
+      - "8093:8093"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8093/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        BOTYAGA_API_PROXY: http://backend:8093
+    container_name: botyaga-frontend
+    restart: unless-stopped
+    environment:
+      HOSTNAME: 0.0.0.0
+      PORT: 3021
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "3021:3021"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3021/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
 volumes:
   botyaga_pgdata:
