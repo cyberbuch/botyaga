@@ -2,7 +2,7 @@ defmodule BotyagaWeb.InvoicesController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Invoicing, Params, Printing}
-  alias Botyaga.Invoicing.Post
+  alias Botyaga.Invoicing.{Payment, Post}
   alias BotyagaWeb.{Render, Respond}
 
   def index(conn, params) do
@@ -64,6 +64,24 @@ defmodule BotyagaWeb.InvoicesController do
     with {:ok, company_id} <- active(conn),
          {:ok, body} <- Post.post(company_id, conn.assigns.current_user.username, id) do
       Respond.ok(conn, body, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def pay(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, body} <- Payment.pay(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, body, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def unpay(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, nil} <- Payment.unpay(company_id, conn.assigns.current_user.username, id) do
+      Respond.no_content(conn)
     else
       error -> Respond.error(conn, error)
     end

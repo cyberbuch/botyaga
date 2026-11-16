@@ -101,6 +101,7 @@ PostgreSQL през Ecto. Миграции в `priv/repo/migrations/` (10 фай
 | Ключ | Смисъл |
 |------|--------|
 | `app.name`, `app.url` | име и адрес на приложението (за писмата) |
+| `default_accounts` | JSON карта роля → номер на сметка за автоматизация (виж [accounting.md](accounting.md)) |
 | `auth.registration_enabled` | публична регистрация (`0`/`false` = изключена) |
 | `auth.jwt_secret` | тайна за JWT — **не се връща през API** |
 | `smtp.host`, `smtp.port`, `smtp.username`, `smtp.password`, `smtp.from_email`, `smtp.from_name`, `smtp.use_tls`, `smtp.enabled` | поща; `smtp.password` се маскира |

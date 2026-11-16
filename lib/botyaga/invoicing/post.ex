@@ -1,11 +1,12 @@
 defmodule Botyaga.Invoicing.Post do
   @moduledoc """
-  Осчетоводяване. Продажба: Дт 411 / Кт приходната сметка на артикула / Кт 4532.
-  Покупка: Дт сметката за покупка / Дт 4531 / Кт 401. Кредитното известие пази
-  същите страни и слага минус. Целият пост е в една транзакция.
+  Осчетоводяване. Клиент/доставчик и ДДС сметките идват от default сметките на
+  фирмата (`Companies.Defaults`); приход/разход/запаси — от артикула. Кредитното
+  известие пази същите страни и слага минус. Целият пост е в една транзакция.
   """
 
   alias Botyaga.{Audit, Catalog, Invoicing, Journal, Periods, Repo}
+  alias Botyaga.Companies.{Company, Defaults}
   alias Botyaga.Stock.Replay
   alias Botyaga.Invoicing.{Invoice, Money}
   alias Botyaga.Journal.{Entry, Line}
@@ -115,7 +116,7 @@ defmodule Botyaga.Invoicing.Post do
   defp unpostable(_), do: {:error, {422, "не е осчетоводена"}}
 
   defp plan_for(inv) do
-    company = inv.company_id
+    company = Repo.get!(Company, inv.company_id)
     total = Money.amount_for_doc(inv.document_type, inv.total_amount)
     vat = Money.amount_for_doc(inv.document_type, inv.vat_amount)
     vat_cents = Money.cents(inv.vat_amount) || 0
@@ -143,13 +144,13 @@ defmodule Botyaga.Invoicing.Post do
     with {:ok, a4531} <-
            acct_or_create(
              company,
-             "4531",
+             Defaults.number(company, "vat_purchase"),
              "Начислен данък върху добавената стойност за покупките"
            ),
          {:ok, a4532} <-
            acct_or_create(
              company,
-             "4532",
+             Defaults.number(company, "vat_sale"),
              "Начислен данък върху добавената стойност за продажбите"
            ) do
       {:ok, [side(a4531, "debit", vat, vat), side(a4532, "credit", vat, vat)]}
@@ -168,7 +169,7 @@ defmodule Botyaga.Invoicing.Post do
            {:ok, a4531} <-
              acct_or_create(
                company,
-               "4531",
+               Defaults.number(company, "vat_purchase"),
                "Начислен данък върху добавената стойност за покупките"
              ) do
         plan = []
@@ -196,8 +197,8 @@ defmodule Botyaga.Invoicing.Post do
   end
 
   defp sales_plan(company, inv, lines, total, vat, vat_cents) do
-    with {:ok, a411} <- acct_number(company, "411"),
-         {:ok, a4532} <- acct_number(company, "4532") do
+    with {:ok, a411} <- Defaults.resolve(company, "customers"),
+         {:ok, a4532} <- Defaults.resolve(company, "vat_sale") do
       plan = [side(a411, "debit", total, "0")]
 
       plan =
@@ -205,8 +206,7 @@ defmodule Botyaga.Invoicing.Post do
           net = Money.amount_for_doc(inv.document_type, line.net_amount)
 
           with {:ok, product} <- need_product(line.product_id, company),
-               :ok <- revenue_account(product),
-               {:ok, acct} <- acct_id(product.revenue_account_id, company) do
+               {:ok, acct} <- revenue_acct(company, product) do
             {:cont, {:ok, acc ++ [side(acct, "credit", net, "0")]}}
           else
             {:error, _} = error -> {:halt, error}
@@ -221,8 +221,8 @@ defmodule Botyaga.Invoicing.Post do
   end
 
   defp purchase_plan(company, inv, lines, total, vat, vat_cents) do
-    with {:ok, a401} <- acct_number(company, "401"),
-         {:ok, a4531} <- acct_number(company, "4531") do
+    with {:ok, a401} <- Defaults.resolve(company, "suppliers"),
+         {:ok, a4531} <- Defaults.resolve(company, "vat_purchase") do
       result =
         Enum.reduce_while(lines, {:ok, []}, fn line, {:ok, acc} ->
           net = Money.amount_for_doc(inv.document_type, line.net_amount)
@@ -233,19 +233,14 @@ defmodule Botyaga.Invoicing.Post do
             acc = acc ++ [side(acct, "debit", net, "0")]
 
             if product.auto_write_off == 1 do
-              if product.expense_account_id <= 0 do
-                {:halt,
-                 {:error, {422, "артикулът #{product.name} няма сметка за автоматично изписване"}}}
-              else
-                case acct_id(product.expense_account_id, company) do
-                  {:ok, expense} ->
-                    {:cont,
-                     {:ok,
-                      acc ++ [side(expense, "debit", net, "0"), side(acct, "credit", net, "0")]}}
+              case expense_acct(company, product) do
+                {:ok, expense} ->
+                  {:cont,
+                   {:ok,
+                    acc ++ [side(expense, "debit", net, "0"), side(acct, "credit", net, "0")]}}
 
-                  {:error, _} = error ->
-                    {:halt, error}
-                end
+                {:error, _} = error ->
+                  {:halt, error}
               end
             else
               {:cont, {:ok, acc}}
@@ -279,16 +274,21 @@ defmodule Botyaga.Invoicing.Post do
     do: {:error, {422, "ред без артикул"}}
 
   defp need_product(product_id, company) do
-    case Repo.get_by(Catalog.Product, id: product_id, company_id: company) do
+    case Repo.get_by(Catalog.Product, id: product_id, company_id: company.id) do
       nil -> {:error, {422, "ред без артикул"}}
       product -> {:ok, product}
     end
   end
 
-  defp revenue_account(%{revenue_account_id: id, name: name}) when id <= 0,
-    do: {:error, {422, "артикулът #{name} няма приходна сметка"}}
+  defp revenue_acct(company, %{revenue_account_id: id}) when id > 0,
+    do: acct_id(id, company)
 
-  defp revenue_account(_), do: :ok
+  defp revenue_acct(company, _product), do: Defaults.resolve(company, "revenues")
+
+  defp expense_acct(company, %{expense_account_id: id}) when id > 0,
+    do: acct_id(id, company)
+
+  defp expense_acct(company, _product), do: Defaults.resolve(company, "expenses")
 
   defp purchase_account(%{inventory_account_id: id, name: name}) when id <= 0,
     do: {:error, {422, "артикулът #{name} няма сметка за покупка"}}
@@ -296,14 +296,14 @@ defmodule Botyaga.Invoicing.Post do
   defp purchase_account(_), do: :ok
 
   defp acct_number(company, number) do
-    case Repo.get_by(Catalog.Account, number: number, company_id: company) do
+    case Repo.get_by(Catalog.Account, number: number, company_id: company.id) do
       nil -> {:error, {422, "липсва сметка с номер #{number}"}}
       account -> {:ok, account}
     end
   end
 
   defp acct_id(id, company) do
-    case Repo.get_by(Catalog.Account, id: id, company_id: company) do
+    case Repo.get_by(Catalog.Account, id: id, company_id: company.id) do
       nil -> {:error, {422, "липсва сметка с id #{id}"}}
       account -> {:ok, account}
     end
@@ -317,7 +317,7 @@ defmodule Botyaga.Invoicing.Post do
       {:error, _} ->
         {:ok,
          Repo.insert!(%Catalog.Account{
-           company_id: company,
+           company_id: company.id,
            number: number,
            name: default_name,
            saft_account_type: number,
@@ -339,9 +339,9 @@ defmodule Botyaga.Invoicing.Post do
 
     from_products =
       Enum.find_value(candidates, fn line ->
-        case Repo.get_by(Catalog.Product, id: line.product_id, company_id: company) do
+        case Repo.get_by(Catalog.Product, id: line.product_id, company_id: company.id) do
           %{inventory_account_id: id} when id > 0 ->
-            case Repo.get_by(Catalog.Account, id: id, company_id: company) do
+            case Repo.get_by(Catalog.Account, id: id, company_id: company.id) do
               nil -> nil
               account -> account
             end

@@ -260,7 +260,9 @@ defmodule Botyaga.Invoicing do
     others =
       Repo.all(
         from(e in Journal.Entry,
-          where: e.document_id == ^inv.id and e.document_type == ^inv.document_type,
+          where:
+            e.document_id == ^inv.id and
+              e.document_type in [^inv.document_type, "payment"],
           select: e.id
         )
       )

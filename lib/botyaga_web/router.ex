@@ -126,6 +126,8 @@ defmodule BotyagaWeb.Router do
     patch "/invoices/:id", InvoicesController, :update
     delete "/invoices/:id", InvoicesController, :delete
     post "/invoices/:id/post", InvoicesController, :post
+    post "/invoices/:id/pay", InvoicesController, :pay
+    post "/invoices/:id/unpay", InvoicesController, :unpay
     get "/invoices/:id/print", InvoicesController, :print
     get "/invoices/:id/ubl", InvoicesController, :ubl
     post "/invoices/:id/issue-protocol", InvoicesController, :issue_protocol

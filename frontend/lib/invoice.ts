@@ -132,6 +132,8 @@ export interface Invoice {
   vat_exemption_reason?: string;
   original_invoice_id?: number;
   journal_entry_id?: number;
+  is_paid?: boolean;
+  payment_entry_id?: number;
   location_id?: number;
   exclude_vat?: number;
   vat_article?: string;

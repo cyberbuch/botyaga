@@ -144,6 +144,36 @@ function DetailInner() {
               {t("invoices.post")}
             </button>
           )}
+          {posted && inv.is_paid && (
+            <button
+              className="btn"
+              disabled={!!busy}
+              onClick={() =>
+                run("unpay", async () => {
+                  await api.post(`/v1/invoices/${inv.id}/unpay`);
+                  await load();
+                })
+              }
+            >
+              {t("invoices.unpay")}
+            </button>
+          )}
+          {posted &&
+            !inv.is_paid &&
+            ["в брой", "карта", "банков превод"].includes(inv.payment_method ?? "") && (
+              <button
+                className="btn btn-primary"
+                disabled={!!busy}
+                onClick={() =>
+                  run("pay", async () => {
+                    await api.post(`/v1/invoices/${inv.id}/pay`);
+                    await load();
+                  })
+                }
+              >
+                {t("invoices.pay")}
+              </button>
+            )}
         </div>
       </div>
 

@@ -24,7 +24,15 @@ defmodule Botyaga.Invoicing.Read do
       value = maybe_put_counterpart(value, inv.counterpart_id, company_id)
       value = maybe_put_company(value, company_id)
       value = Audit.attach_stamp(value, Map.get(Audit.stamps_for(company_id, "invoice"), inv.id))
+      value = put_payment(value, company_id, inv.id)
       {:ok, Map.put(value, :audit_history, Audit.history_for(company_id, "invoice", inv.id))}
+    end
+  end
+
+  defp put_payment(value, company_id, invoice_id) do
+    case Botyaga.Invoicing.Payment.fetch_payment(company_id, invoice_id) do
+      {:ok, entry} -> value |> Map.put(:is_paid, true) |> Map.put(:payment_entry_id, entry.id)
+      {:error, _} -> Map.put(value, :is_paid, false)
     end
   end
 

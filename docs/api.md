@@ -125,6 +125,8 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 | GET | `/v1/invoices/:id` | преглед |
 | PATCH / DELETE | `/v1/invoices/:id` | редакция / изтриване |
 | POST | `/v1/invoices/:id/post` | осчетоводяване |
+| POST | `/v1/invoices/:id/pay` | автоматично плащане (в брой/карта/банка) от default сметките |
+| POST | `/v1/invoices/:id/unpay` | отмяна на плащането |
 | GET | `/v1/invoices/:id/print` | печат (PDF/DOCX/ODT) |
 | GET | `/v1/invoices/:id/ubl` | UBL 2.1 експорт |
 | POST | `/v1/invoices/:id/issue-protocol` | протокол по чл. 117 ЗДДС |
