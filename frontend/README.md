@@ -1,7 +1,8 @@
 # botyaga — интерфейс
 
 Next.js на порт **3021**. Документацията на проекта е в
-[`../README.md`](../README.md) и [`../PLAN.md`](../PLAN.md).
+[`../README.md`](../README.md) и [`../docs/`](../docs/) — подробно за
+интерфейса в [`../docs/frontend.md`](../docs/frontend.md).
 
 ```bash
 npm install

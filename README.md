@@ -1,35 +1,36 @@
-# botyaga — счетоводна програма (Elixir порт на ytbuch)
+# botyaga — счетоводна програма
 
-**Серия Baraba · модел botyaga** — същото счетоводно приложение като
-[ytbuch](https://ytbuch.cfd), пренесено на нов стек:
-**Elixir + Phoenix + Ecto + PostgreSQL**.
+**botyaga** е самостоятелна счетоводна програма: JSON API на
+**Elixir + Phoenix + Ecto + PostgreSQL** и интерфейс на **Next.js 16**.
+Покрива целия счетоводен цикъл — фирми и обекти, сметкоплан, фактури,
+дневник, счетоводни периоди, ДДС, банки, дълготрайни активи, склад,
+производство, дивиденти, справки, финансови отчети с формули, SAF-T XML,
+печат (PDF/DOCX/ODT/XLSX/ODS), UBL 2.1 експорт и вход, курсове на ЕЦБ,
+VIES, адреси и OCR, одитна следа, интегритет на базата и S3 бекъп.
 
-> **Статус: проектът е завършен (фази 0–10), 242 теста.** Миграция на данни от
-> ytbuch няма да се прави — всичко е dev/test (фаза 11 е отменена). Работят вход, профил, 2FA, фирми, обекти,
-> собственици, майки, серии, членства, табло, настройки, gate, сметкоплан,
-> контрагенти, стоки, номенклатури, КН8, фактури, осчетоводяване в транзакция,
-> ръчен дневник, периоди, начални салда, приключване, одит, ДДС, банки, ДМА,
-> склад (WAC/FIFO/LIFO), производство, вътрешни протоколи, дивиденти, справки
-> (оборотна, главна книга, кореспонденции, хронология, контрагентни, склад),
-> финансови отчети с формули, SAF-T XML (месечен/годишен/при поискване),
-> печат (PDF през Chromium sidecar, DOCX/ODT/XLSX/ODS нативно), UBL 2.1
-> експорт/вход, ЕЦБ курсове, VIES, адреси и OCR (Mistral), одитна следа с
-> филтри, db-check интегритет и S3 бекъп (pg_dump → gzip, SigV4 без aws-sdk).
-> PDF рендерът и външните HTTP/S3 заявки се проверяват със стартиран sidecar/ключове.
-> Пътната карта и статусът по фази са в [`PLAN.md`](PLAN.md).
-> Изходното приложение е `../ytbuch` (Rust/Axum + YottaDB/Octo + Next.js) и не се пипа.
+> **Статус: продуктът е завършен. 245 теста зелени** (проверено на 2026-11-16).
+> Работят вход, профил, 2FA, фирми, обекти, собственици, майки, серии,
+> членства, табло, настройки, gate, сметкоплан, контрагенти, стоки,
+> номенклатури, КН8, фактури, осчетоводяване в транзакция, ръчен дневник,
+> периоди, начални салда, приключване, одит, ДДС, банки, ДМА, склад
+> (WAC/FIFO/LIFO), производство, вътрешни протоколи, дивиденти, справки,
+> финансови отчети, SAF-T XML (месечен/годишен/при поискване), печат, UBL,
+> ЕЦБ курсове, VIES, адреси и OCR (Mistral), db-check и S3 бекъп.
 
-## Какво се пренася и какво не
+## Документация
 
-- **Запазва се:** целият `/v1` API контракт (пътища, JSON форми, грешки
-  `{"detail":...}`, списъци `items`/`count`), счетоводните правила (EUR база,
-  черно сторно с отрицателен знак, суми като низове в JSON, `company_id`
-  изолация), Next.js фронтендът — без промени.
-- **Сменя се:** Rust/Axum → Phoenix (JSON API, без LiveView),
-  YottaDB/Octo → PostgreSQL през Ecto.
-- **Подобрява се:** истински транзакции за пост/отпост/склад (Octo няма
-  транзакционни записи), индекси и външни ключове, `ALTER TABLE` —
-  допълнителните таблици `*_extra` се сливат в основните.
+Подробната документация е в [`docs/`](docs/):
+
+- [architecture.md](docs/architecture.md) — стек, слоеве, модули, принципи
+- [api.md](docs/api.md) — конвенции и пълен списък на API пътищата
+- [data.md](docs/data.md) — таблици, ключове, настройки
+- [accounting.md](docs/accounting.md) — фирми, сметкоплан, фактури, дневник, периоди
+- [vat-banking.md](docs/vat-banking.md) — ДДС, банки, ДМА
+- [stock-production.md](docs/stock-production.md) — склад, производство, дивиденти
+- [reports-saft.md](docs/reports-saft.md) — справки, финансови отчети, SAF-T, одит
+- [printing-ubl.md](docs/printing-ubl.md) — печат, UBL, курсове, VIES, OCR
+- [frontend.md](docs/frontend.md) — интерфейс
+- [deployment.md](docs/deployment.md) — стек, release, CI, бекъп, променливи
 
 ## Стек
 
@@ -37,32 +38,38 @@
 |------|------------|
 | Backend | Elixir + Phoenix (JSON API), Ecto |
 | База | PostgreSQL |
-| Frontend | Next.js 16 ( непроменен, от ytbuch ) |
-| Автентикация | JWT HS256, argon2id (+ наследени sha256 хешове), TOTP 2FA |
+| Frontend | Next.js 16 |
+| Автентикация | JWT HS256, argon2id, TOTP 2FA |
+| Печат | Chromium sidecar (Gotenberg) за PDF; DOCX/ODT/XLSX/ODS нативно |
 | Деплой | release, билднат в CI → tarball на VPS, без toolchain на сървъра |
 
-## Портове (предложение)
+## Портове
 
 | Услуга | Адрес |
 |--------|-------|
 | API (Phoenix) | `127.0.0.1:8093` |
 | Интерфейс (Next.js) | `127.0.0.1:3021` |
 | PostgreSQL | `127.0.0.1:5433` |
-
-Портовете `3000`/`3010` са на bagabuch и 7x7office, `3020`/`8092` — на ytbuch.
-botyaga ползва свои, за да върви успоредно с ytbuch до преминаването.
+| Печат sidecar | `127.0.0.1:8094` |
 
 ## Стартиране локално
 
 ```bash
-docker compose -f deploy/docker-compose.yml up -d   # PostgreSQL на 127.0.0.1:5433
-mix setup                                          # deps, база, миграции, seeds
-mix phx.server                                     # API на http://127.0.0.1:8093
+docker compose -f deploy/docker-compose.yml up -d --build   # пълен стек
 ```
 
-При първи старт с празна база се създава `superadmin` с еднократна парола в лога.
-За парола по избор задай `BOTYAGA_SUPERADMIN_PASSWORD` преди първия старт.
-Готовност: `GET /ready` → `{"status":"ok","database":"up"}`.
+Или само базата и backend:
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d postgres   # PostgreSQL на 127.0.0.1:5433
+mix setup                                                     # deps, база, миграции, seeds
+mix phx.server                                                # API на http://127.0.0.1:8093
+cd frontend && npm install && npm run dev                     # интерфейс на :3021
+```
+
+При първи старт с празна база се създава `superadmin` с еднократна парола в
+лога. За парола по избор задай `BOTYAGA_SUPERADMIN_PASSWORD` преди първия
+старт. Готовност: `GET /ready` → `{"status":"ok","database":"up"}`.
 
 Проверка: `mix precommit` (формат, компилация без предупреждения, тестове) и
 `./scripts/filesize.sh` (мек gate 400 реда, твърд 600).
@@ -70,11 +77,13 @@ mix phx.server                                     # API на http://127.0.0.1:8
 ## Променливи
 
 | Променлива | По подразбиране |
-|------------|----------------|
+|------------|-----------------|
 | `BOTYAGA_JWT_SECRET` | няма — при първи старт се генерира и се пази в `settings` под `auth.jwt_secret` |
 | `BOTYAGA_SUPERADMIN_PASSWORD` | няма — при празна база се генерира еднократна парола в лога |
 | `BOTYAGA_DB_HOST` / `_PORT` / `_NAME` | `127.0.0.1` / `5433` / `botyaga_dev` |
 | `PORT` | `8093` |
+
+Пълният списък — в [deployment.md](docs/deployment.md).
 
 ## Принципи
 
@@ -86,13 +95,6 @@ mix phx.server                                     # API на http://127.0.0.1:8
 - Модулите се делят с header-и; gate 400 реда (мек) / 600 (твърд).
 - Хранилището не съдържа лични данни и тайни. Демо данните са измислени.
 
-## Документация на изходното приложение
-
-- [`../ytbuch/docs/architecture.md`](../ytbuch/docs/architecture.md) — модули и потоци
-- [`../ytbuch/docs/api.md`](../ytbuch/docs/api.md) — пълен API контракт
-- [`../ytbuch/docs/data.md`](../ytbuch/docs/data.md) — таблици и демо данни
-- [`../ytbuch/docs/saft.md`](../ytbuch/docs/saft.md) — номенклатури на НАП
-
 ## Лиценз
 
-[BSD-3-Clause](LICENSE), както ytbuch. Серия Baraba остава отворен код.
+[BSD-3-Clause](LICENSE).
