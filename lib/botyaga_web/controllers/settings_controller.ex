@@ -1,7 +1,7 @@
 defmodule BotyagaWeb.SettingsController do
   use BotyagaWeb, :controller
 
-  alias Botyaga.{Access, Emails, Settings}
+  alias Botyaga.{Access, Backup, DbCheck, Emails, S3, Settings}
   alias BotyagaWeb.{Render, Respond}
 
   def index(conn, params) do
@@ -46,6 +46,51 @@ defmodule BotyagaWeb.SettingsController do
 
       {:error, :forbidden} ->
         Respond.error(conn, {403, "изисква се супер администратор"})
+    end
+  end
+
+  def db_check(conn, _params) do
+    Respond.ok(conn, DbCheck.integrity())
+  end
+
+  def s3_test(conn, _params) do
+    case S3.test(Settings.s3_cfg()) do
+      {:ok, data} -> Respond.ok(conn, data)
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def s3_backup(conn, _params) do
+    as_super(conn, fn ->
+      case Backup.create(Settings.s3_cfg()) do
+        {:ok, data} -> Respond.ok(conn, data)
+        error -> Respond.error(conn, error)
+      end
+    end)
+  end
+
+  def s3_backups(conn, _params) do
+    as_super(conn, fn ->
+      case S3.list(Settings.s3_cfg()) do
+        {:ok, data} -> Respond.ok(conn, data)
+        error -> Respond.error(conn, error)
+      end
+    end)
+  end
+
+  def s3_delete(conn, params) do
+    as_super(conn, fn ->
+      case Backup.delete(Settings.s3_cfg(), params["s3_key"]) do
+        {:ok, data} -> Respond.ok(conn, data)
+        error -> Respond.error(conn, error)
+      end
+    end)
+  end
+
+  defp as_super(conn, fun) do
+    case Access.require_super_admin(conn.assigns.current_user) do
+      :ok -> fun.()
+      {:error, :forbidden} -> Respond.error(conn, {403, "изисква се супер администратор"})
     end
   end
 end

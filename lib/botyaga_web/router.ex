@@ -85,6 +85,11 @@ defmodule BotyagaWeb.Router do
     get "/system-settings", SettingsController, :index
     put "/system-settings", SettingsController, :update
     post "/system-settings/smtp-test", SettingsController, :smtp_test
+    get "/system-settings/db-check", SettingsController, :db_check
+    post "/system-settings/s3-test", SettingsController, :s3_test
+    post "/system-settings/s3-backup", SettingsController, :s3_backup
+    get "/system-settings/s3-backups", SettingsController, :s3_backups
+    post "/system-settings/s3-delete", SettingsController, :s3_delete
 
     get "/accounts", CatalogController, :accounts
     post "/accounts", CatalogController, :account_create
@@ -264,6 +269,9 @@ defmodule BotyagaWeb.Router do
     post "/exchange-rates/import", RatesController, :import
 
     post "/addresses/parse", AddressesController, :parse
+
+    get "/audit-logs", AuditController, :index
+    get "/audit-logs/:entity_type/:entity_id", AuditController, :entity_history
 
     match :*, "/*path", FallbackController, :fallback
   end

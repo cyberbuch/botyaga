@@ -102,6 +102,15 @@
   Външните HTTP услуги са с код + фикстури; реалните извиквания с ключове се
   конфигурират от потребителя. 229 теста.
 
+- **Фаза 10** — админ, архив, одит. `Audit.index` с филтри (entity_type/id,
+  action, user, from/to, changed_only, q) + `entity_history`; `/v1/audit-logs`
+  и `/v1/audit-logs/:type/:id`. `DbCheck.integrity` (връзка, таблици, сираци по
+  фирма/документ, баланс дебит=кредит) — `/v1/system-settings/db-check`.
+  `S3.Sign` (SigV4, без aws-sdk) + `S3` (path-style list/put/delete) + `Backup`
+  (`pg_dump` → gzip → S3, `ytbuch_backup_*.sql.gz`); s3-test/s3-backup/
+  s3-backups/s3-delete (супер админ). Строг шаблон за имената на архивите.
+  242 теста.
+
 **Отклонения от плана, с причина:**
 
 - **Няма външни ключове.** ytbuch трие само реда на фирмата или потребителя и
@@ -144,9 +153,16 @@
   (ECB cubes, VIES JSON, OCR pages, UBL) и локалният адрес се тестват изцяло;
   реалните заявки се конфигурират от потребителя (Mistral ключът е в настройките
   на фирмата, както в ytbuch). PDF рендерът се проверява със стартиран sidecar.
+- **S3 е с ръчен SigV4 клиент (`S3.Sign` + `Req`), не ExAws** — същият path-style
+  контракт и `ytbuch_backup_*.sql.gz` формат, без нова зависимост (както rate
+  limit-а е в ETS, не Hammer). Подписът се тества с фиксирани входове; живите
+  заявки искат bucket/ключове в настройките.
+- **Бекъпът е `pg_dump` → gzip**, не логически INSERT като Octo dump-а на ytbuch
+  (Postgres има pg_dump). Няма MUPIP архив (YottaDB-специфично) — pg_dump покрива
+  цялата база. `pg_dump` трябва да е инсталиран на VPS-а (postgres клиент).
 
-**Следващо: фаза 10** — админ (system-settings smtp-test/s3-*/db-check),
-audit-logs ендпойнти, архив (backup).
+**Следващо: фаза 11** — миграция на данни от ytbuch SQL dump + cutover (FK
+ключове след почистване на сираци, прехвърляне на демо/реални данни).
 
 ## 1. Мотив — честен одит
 

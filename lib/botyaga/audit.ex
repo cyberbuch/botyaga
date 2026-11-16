@@ -123,6 +123,86 @@ defmodule Botyaga.Audit do
     |> Enum.map(&row_json(&1, true))
   end
 
+  @doc "Одитен списък с филтри (entity_type/id, action, user, from/to, changed_only, q)."
+  def index(company_id, params) do
+    et = params |> str("entity_type") |> String.trim()
+    eid = Botyaga.Params.integer(params, "entity_id") || 0
+    act = params |> str("action") |> String.trim()
+    user = params |> str("user") |> String.trim() |> String.downcase()
+    from = params |> str("from") |> String.trim()
+    to = params |> str("to") |> String.trim()
+    changed_only = String.trim(str(params, "changed_only")) in ["1", "true", "yes"]
+    search = params |> str("q") |> String.trim() |> String.downcase()
+
+    Repo.all(from(l in Log, where: l.company_id == ^company_id, order_by: [desc: l.id]))
+    |> Enum.filter(fn log ->
+      keep?(log, et, eid, act, user, from, to, changed_only, search)
+    end)
+    |> Enum.map(&row_json(&1, true))
+  end
+
+  def entity_history(company_id, entity_type, entity_id) do
+    items = history_for(company_id, String.trim(entity_type), Botyaga.Params.id(entity_id))
+    %{items: items, count: length(items)}
+  end
+
+  defp keep?(log, et, eid, act, user, from, to, changed_only, search) do
+    day = String.slice(Stamp.to_stamp(log.created_at), 0, 10)
+    old_amt = log.old_amount || ""
+    new_amt = log.new_amount || ""
+    ulogin = log.user_login || ""
+    uname = log.user_name || ""
+
+    cond do
+      et != "" and log.entity_type != et ->
+        false
+
+      eid > 0 and log.entity_id != eid ->
+        false
+
+      act != "" and log.action != act ->
+        false
+
+      user != "" and not String.contains?(String.downcase(ulogin), user) and
+          not String.contains?(String.downcase(uname), user) ->
+        false
+
+      from != "" and day < from ->
+        false
+
+      to != "" and day > to ->
+        false
+
+      changed_only and not changed?(log, old_amt, new_amt) ->
+        false
+
+      search != "" and not String.contains?(haystack(log, old_amt, new_amt), search) ->
+        false
+
+      true ->
+        true
+    end
+  end
+
+  defp changed?(log, old_amt, new_amt) do
+    diff = old_amt != "" and new_amt != "" and old_amt != new_amt
+    risky = log.action in ["update", "delete", "unpost"]
+    diff or risky
+  end
+
+  defp haystack(log, old_amt, new_amt) do
+    ("#{log.user_login} #{log.user_name} #{log.entity_type} #{log.entity_id} " <>
+       "#{log.entity_number} #{log.action} #{log.summary} #{old_amt} #{new_amt}")
+    |> String.downcase()
+  end
+
+  defp str(params, key) do
+    case Botyaga.Params.str(params, key) do
+      {:present, value} -> value
+      _ -> ""
+    end
+  end
+
   defp row_json(log, with_snapshots) do
     amount_changed =
       (log.old_amount || "") != "" and (log.new_amount || "") != "" and
