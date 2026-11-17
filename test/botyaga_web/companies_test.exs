@@ -50,6 +50,25 @@ defmodule BotyagaWeb.CompaniesTest do
       assert json_response(conn, 403)["detail"] == "създаването на фирма е за супер администратор"
     end
 
+    test "администратор на фирма не може да я трие (403, не 500)" do
+      super = superadmin()
+
+      {:ok, company, _seeded} =
+        Companies.create(%{"name" => "Моята", "eik" => "777888999"}, super)
+
+      {:ok, user} = Accounts.create_user("фуз@baga.example", "Фуз", "парола-123")
+      {:ok, role_id} = Access.role_id_by_name(Access.role_admin())
+      Access.grant(user.id, company.id, role_id)
+      Companies.set_active(user.username, company.id)
+
+      conn =
+        build_conn()
+        |> auth_conn(user)
+        |> delete("/v1/companies/#{company.id}")
+
+      assert json_response(conn, 403)["detail"] == "изтриването на фирма е за супер администратор"
+    end
+
     test "дубликат по ЕИК е 409" do
       super = superadmin()
 

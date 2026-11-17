@@ -443,21 +443,21 @@ textarea {
 }
 
 .modal-lg {
-  max-width: 980px;
-  width: min(980px, calc(100vw - 24px));
+  max-width: 1200px;
+  width: min(1200px, calc(100vw - 24px));
 }
 
 .journal-line-head,
 .journal-line-row {
   display: grid;
-  grid-template-columns: minmax(180px, 2.4fr) 130px 140px 140px 40px;
+  grid-template-columns: minmax(90px, 200px) 72px 80px 80px 30px 48px 68px minmax(88px, 1fr) 80px;
   gap: 8px;
   align-items: center;
 }
 
 .journal-lines-novat .journal-line-head,
 .journal-lines-novat .journal-line-row {
-  grid-template-columns: minmax(180px, 2.4fr) 130px 140px 40px;
+  grid-template-columns: minmax(90px, 200px) 72px 80px 30px 48px 68px minmax(88px, 1fr) 80px;
 }
 
 .journal-line-head {
@@ -471,13 +471,22 @@ textarea {
   margin-bottom: 8px;
 }
 
+.journal-line-row .picker-trigger {
+  margin-bottom: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.journal-line-row .input,
+.journal-line-row .select {
+  min-width: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
 .journal-fx-row {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: 90px 150px 150px 130px;
-  gap: 8px;
-  align-items: center;
-  margin-top: -4px;
+  display: contents;
 }
 
 .journal-value-derived {
@@ -498,10 +507,6 @@ textarea {
 
   .journal-line-row,
   .journal-lines-novat .journal-line-row {
-    grid-template-columns: 1fr;
-  }
-
-  .journal-fx-row {
     grid-template-columns: 1fr;
   }
 }

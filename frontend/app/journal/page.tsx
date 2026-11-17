@@ -755,6 +755,10 @@ function JournalInner() {
                   <span>{t("journal.quantity")}</span>
                   {tab !== "no_vat" ? <span>{t("journal.vat_amount")}</span> : null}
                   <span />
+                  <span>{t("journal.currency")}</span>
+                  <span>{t("journal.fx_rate")}</span>
+                  <span>{t("journal.amount")}</span>
+                  <span />
                 </div>
                 {lines.map((l, i) => (
                   <div key={i} className="journal-line-row">

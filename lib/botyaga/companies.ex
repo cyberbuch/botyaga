@@ -77,6 +77,7 @@ defmodule Botyaga.Companies do
       {:ok, nil}
     else
       nil -> {:error, :not_found}
+      {:error, :forbidden} -> {:error, :forbidden}
     end
   end
 
