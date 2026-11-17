@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "../../components/I18nProvider";
+import { TermBar } from "../../components/TermBar";
 import { api } from "../../lib/api";
 
 function ResetInner() {
@@ -45,6 +46,7 @@ function ResetInner() {
   return (
     <div className="login-wrap">
       <form className="card login-card" onSubmit={submit}>
+        <TermBar label="root@botyaga:~ — reset" />
         <h1 className="login-title">{t("reset.title")}</h1>
         {!token && <p className="error-text">{t("reset.no_token")}</p>}
         <div className="field">

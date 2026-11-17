@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "../../components/I18nProvider";
+import { TermBar } from "../../components/TermBar";
 import { api } from "../../lib/api";
 
 export default function ForgotPasswordPage() {
@@ -30,6 +31,7 @@ export default function ForgotPasswordPage() {
   return (
     <div className="login-wrap">
       <form className="card login-card" onSubmit={submit}>
+        <TermBar label="root@botyaga:~ — recover" />
         <h1 className="login-title">{t("forgot.title")}</h1>
         <p className="muted" style={{ marginTop: 0 }}>{t("forgot.hint")}</p>
         <div className="field">

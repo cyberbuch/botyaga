@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../components/AuthProvider";
 import { useI18n } from "../../components/I18nProvider";
+import { TermBar } from "../../components/TermBar";
 import { api, loginMfa } from "../../lib/api";
 
 export default function LoginPage() {
@@ -55,7 +56,11 @@ export default function LoginPage() {
   return (
     <div className="login-wrap">
       <form className="card login-card" onSubmit={handleSubmit}>
-        <h1 className="login-title">{t("login.title")}</h1>
+        <TermBar label="root@botyaga:~ — auth" />
+        <h1 className="login-title">
+          {t("login.title")}
+          <span className="term-cursor" aria-hidden="true">▌</span>
+        </h1>
         {mfaToken ? (
           <div className="field">
             <label className="label">{t("login.otp")}</label>

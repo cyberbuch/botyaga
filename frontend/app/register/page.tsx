@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "../../components/I18nProvider";
+import { TermBar } from "../../components/TermBar";
 import { api } from "../../lib/api";
 
 export default function RegisterPage() {
@@ -79,6 +80,7 @@ export default function RegisterPage() {
     return (
       <div className="login-wrap">
         <div className="card login-card">
+          <TermBar label="root@botyaga:~ — register" />
           <h1 className="login-title">{t("register.title")}</h1>
           <p className="error-text">{t("register.disabled")}</p>
           <p className="muted login-links">
@@ -92,6 +94,7 @@ export default function RegisterPage() {
   return (
     <div className="login-wrap">
       <form className="card login-card login-card-wide" onSubmit={step === 1 ? next : submit}>
+        <TermBar label="root@botyaga:~ — register" />
         <h1 className="login-title">{t("register.title")}</h1>
         <p className="muted" style={{ marginTop: 0 }}>
           {step === 1 ? t("register.step_user") : t("register.step_company")}
