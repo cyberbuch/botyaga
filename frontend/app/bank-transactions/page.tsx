@@ -12,6 +12,7 @@ import {
   Account,
   BankAccount,
   BankTransaction,
+  BookPreview,
   Counterpart,
   JeLine,
   Preview,
@@ -75,6 +76,7 @@ function BankTransactionsInner() {
   const [bookCpSearch, setBookCpSearch] = useState("");
   const [bookAccSearch, setBookAccSearch] = useState("");
   const [bookLoading, setBookLoading] = useState(false);
+  const [bookPreview, setBookPreview] = useState<BookPreview | null>(null);
 
   const [reallocTx, setReallocTx] = useState<BankTransaction | null>(null);
   const [reallocAccount, setReallocAccount] = useState(0);
@@ -232,19 +234,11 @@ function BankTransactionsInner() {
   const handleImport = async () => {
     setImporting(true);
     try {
-      const r = await api.post<{ imported: number; journal_count: number }>(
-        "/v1/bank-transactions/import",
-        {
-          bank_account_id: Number(selectedAccount),
-          file_content: pendingContent,
-        }
-      );
-      const msg =
-        r.journal_count > 0
-          ? t("bank_tx.imported_with_journal")
-              .replace("{n}", String(r.imported))
-              .replace("{j}", String(r.journal_count))
-          : t("bank_tx.imported").replace("{n}", String(r.imported));
+      const r = await api.post<{ imported: number }>("/v1/bank-transactions/import", {
+        bank_account_id: Number(selectedAccount),
+        file_content: pendingContent,
+      });
+      const msg = t("bank_tx.imported_pending").replace("{n}", String(r.imported));
       setSuccess(msg);
       setError("");
       setPreviewOpen(false);
@@ -266,6 +260,7 @@ function BankTransactionsInner() {
     setBookCpId(m?.id ?? 0);
     setBookCpSearch(tx.counterpart_name || "");
     setBookAccSearch("");
+    setBookPreview(null);
   };
 
   const openReallocate = async (tx: BankTransaction) => {
@@ -288,16 +283,55 @@ function BankTransactionsInner() {
     }
   };
 
-  const bankGlId = (tx: BankTransaction | null): number => {
-    if (!tx) return 0;
-    const ba = accounts.find((a) => a.id === tx.bank_account_id);
-    return ba?.gl_account_id ?? 0;
-  };
+  const bankGlId = useCallback(
+    (tx: BankTransaction | null): number => {
+      if (!tx) return 0;
+      const ba = accounts.find((a) => a.id === tx.bank_account_id);
+      return ba?.gl_account_id ?? 0;
+    },
+    [accounts]
+  );
+
+  useEffect(() => {
+    if (!bookTx) {
+      setBookPreview(null);
+      return;
+    }
+    const gl = bankGlId(bookTx);
+    const payload: Record<string, number> = {};
+    if (gl > 0) {
+      if (!bookContra) {
+        setBookPreview(null);
+        return;
+      }
+      payload.contra_account_id = bookContra;
+    } else {
+      if (!bookDebit || !bookCredit) {
+        setBookPreview(null);
+        return;
+      }
+      payload.debit_account_id = bookDebit;
+      payload.credit_account_id = bookCredit;
+    }
+    if (bookCpId > 0) payload.counterpart_id = bookCpId;
+    let cancelled = false;
+    api
+      .post<BookPreview>(`/v1/bank-transactions/${bookTx.id}/book/preview`, payload)
+      .then((p) => {
+        if (!cancelled) setBookPreview(p);
+      })
+      .catch(() => {
+        if (!cancelled) setBookPreview(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookTx, bookContra, bookDebit, bookCredit, bookCpId, bankGlId]);
 
   const handleBook = async () => {
     if (!bookTx) return;
     const gl = bankGlId(bookTx);
-    const payload: Record<string, number> = {};
+    const payload: Record<string, number | boolean> = { confirm: true };
     if (gl > 0) {
       if (!bookContra) {
         setError(t("bank_tx.pick_contra"));
@@ -624,6 +658,7 @@ function BankTransactionsInner() {
         setBookCredit={setBookCredit}
         handleBook={handleBook}
         bookLoading={bookLoading}
+        bookPreview={bookPreview}
         reallocTx={reallocTx}
         setReallocTx={setReallocTx}
         reallocLines={reallocLines}

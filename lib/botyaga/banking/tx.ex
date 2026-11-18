@@ -1,7 +1,11 @@
 defmodule Botyaga.Banking.Tx do
   @moduledoc """
   Банкови транзакции: преглед, импорт, ръчно осчетоводяване и разнасяне.
-  Автоматичният запис е Дт ГЛ / Кт буфер при плюс и обратно при минус.
+
+  Импортът НЕ създава счетоводни записи — транзакциите остават „нови“.
+  Всяка транзакция се осчетоводява само след изрично потвърждение:
+  `book_preview` връща предложения запис (Дт/Кт) без да пише в базата,
+  а `book` изисква `confirm=true` и едва тогава създава статията.
   """
 
   import Ecto.Query
@@ -47,101 +51,122 @@ defmodule Botyaga.Banking.Tx do
     end
   end
 
-  def import(company_id, sub, params) do
+  def import(company_id, _sub, params) do
     with {:ok, ba_id} <- req_id(params, "bank_account_id"),
          {:ok, content} <- required(params, "file_content"),
          {:ok, ba} <- bank(company_id, ba_id),
          {:ok, parsed} <- detect(content) do
       refs = refs_of(ba_id)
-      auto = ba.gl_account_id > 0 and ba.buffer_account_id > 0
 
-      with :ok <- check_periods(company_id, parsed.txs, auto) do
-        result =
-          Repo.transaction(fn ->
-            Enum.reduce(parsed.txs, {0, 0}, fn tx, {imported, journal_count} ->
-              if tx.reference != "" and tx.reference in refs do
-                {imported, journal_count}
-              else
-                case Dec.parse(tx.amount) do
-                  nil ->
-                    {imported, journal_count}
+      result =
+        Repo.transaction(fn ->
+          Enum.reduce(parsed.txs, 0, fn tx, imported ->
+            if tx.reference != "" and tx.reference in refs do
+              imported
+            else
+              case Dec.parse(tx.amount) do
+                nil ->
+                  imported
 
-                  amount ->
-                    tx_type = if amount < 0, do: "WITHDRAWAL", else: "DEPOSIT"
-                    currency = if tx.currency == "", do: ba.currency, else: tx.currency
+                amount ->
+                  tx_type = if amount < 0, do: "WITHDRAWAL", else: "DEPOSIT"
+                  currency = if tx.currency == "", do: ba.currency, else: tx.currency
 
-                    row =
-                      Repo.insert!(%Transaction{
-                        company_id: company_id,
-                        bank_account_id: ba_id,
-                        txn_date: tx.date,
-                        amount: Dec.money(amount),
-                        currency: currency,
-                        counterpart_name: tx.contra_name,
-                        counterpart_iban: tx.contra_iban,
-                        description: tx.description,
-                        reference: tx.reference,
-                        transaction_type: tx_type,
-                        is_booked: if(auto, do: 1, else: 0),
-                        is_allocated: 0
-                      })
+                  Repo.insert!(%Transaction{
+                    company_id: company_id,
+                    bank_account_id: ba_id,
+                    txn_date: tx.date,
+                    amount: Dec.money(amount),
+                    currency: currency,
+                    counterpart_name: tx.contra_name,
+                    counterpart_iban: tx.contra_iban,
+                    description: tx.description,
+                    reference: tx.reference,
+                    transaction_type: tx_type,
+                    is_booked: 0,
+                    is_allocated: 0
+                  })
 
-                    if auto do
-                      {:ok, entry} = auto_journal(company_id, ba, tx, amount, tx_type)
-                      Repo.update!(Ecto.Changeset.change(row, journal_entry_id: entry))
-                      abs_s = Dec.money(Dec.abs(amount))
-
-                      Audit.record(
-                        company_id,
-                        sub,
-                        "journal",
-                        entry,
-                        tx.reference,
-                        "create",
-                        "Импортирана банкова транзакция (#{tx.reference}) — #{tx.contra_name}, сума #{abs_s}",
-                        "",
-                        abs_s,
-                        nil,
-                        nil
-                      )
-
-                      {imported + 1, journal_count + 1}
-                    else
-                      {imported + 1, journal_count}
-                    end
-                end
+                  imported + 1
               end
-            end)
+            end
           end)
+        end)
 
-        case result do
-          {:ok, {imported, journal_count}} ->
-            {:ok, %{imported: imported, journal_count: journal_count}}
+      case result do
+        {:ok, imported} ->
+          {:ok, %{imported: imported, journal_count: 0}}
 
-          {:error, reason} ->
-            {:error, {500, inspect(reason)}}
-        end
+        {:error, reason} ->
+          {:error, {500, inspect(reason)}}
       end
     end
   end
 
-  defp check_periods(_company_id, _txs, false), do: :ok
-
-  defp check_periods(company_id, txs, true) do
-    Enum.reduce_while(txs, :ok, fn tx, _acc ->
-      case Periods.assert_open(company_id, tx.date) do
-        :ok -> {:cont, :ok}
-        {:error, _} = error -> {:halt, error}
-      end
-    end)
+  def book(company_id, sub, id, params) do
+    with :ok <- confirmed(params) do
+      cp = Params.integer(params, "counterpart_id") || 0
+      contra = Params.integer(params, "contra_account_id") || 0
+      debit = Params.integer(params, "debit_account_id")
+      credit = Params.integer(params, "credit_account_id")
+      book_tx(company_id, sub, id, contra, cp, debit, credit)
+    end
   end
 
-  def book(company_id, sub, id, params) do
+  defp confirmed(params) do
+    case Params.flag(params, "confirm") do
+      1 ->
+        :ok
+
+      _ ->
+        {:error, {422, "Осчетоводяването изисква потвърждение: confirm=true"}}
+    end
+  end
+
+  def book_preview(company_id, id, params) do
     cp = Params.integer(params, "counterpart_id") || 0
     contra = Params.integer(params, "contra_account_id") || 0
     debit = Params.integer(params, "debit_account_id")
     credit = Params.integer(params, "credit_account_id")
-    book_tx(company_id, sub, id, contra, cp, debit, credit)
+
+    with {:ok, tx} <- tx_row(company_id, id),
+         :ok <- ensure_ref(Catalog.Counterpart, cp, company_id, "контрагентът"),
+         :ok <- ensure_ref(Catalog.Account, contra, company_id, "сметката"),
+         :ok <- not_booked(tx),
+         {:ok, amount} <- tx_amount(tx),
+         {:ok, ba} <- bank(company_id, tx.bank_account_id),
+         {:ok, debit_id, credit_id} <- sides(ba, contra, debit, credit, amount, company_id),
+         :ok <- Periods.assert_open(company_id, tx.txn_date),
+         {:ok, debit_acc} <- account_by_id(debit_id, company_id),
+         {:ok, credit_acc} <- account_by_id(credit_id, company_id) do
+      abs_s = Dec.money(Dec.abs(amount))
+
+      {:ok,
+       %{
+         transaction_id: tx.id,
+         date: tx.txn_date,
+         amount: abs_s,
+         currency: tx.currency,
+         description: base_desc(tx),
+         requires_confirm: true,
+         lines: [
+           %{
+             account_id: debit_acc.id,
+             account_number: debit_acc.number,
+             account_name: debit_acc.name,
+             direction: "debit",
+             amount: abs_s
+           },
+           %{
+             account_id: credit_acc.id,
+             account_number: credit_acc.number,
+             account_name: credit_acc.name,
+             direction: "credit",
+             amount: abs_s
+           }
+         ]
+       }}
+    end
   end
 
   def book_tx(company_id, sub, id, contra, cp, debit_opt, credit_opt) do
@@ -481,39 +506,6 @@ defmodule Botyaga.Banking.Tx do
           "" -> "EUR"
           currency -> currency
         end
-    end
-  end
-
-  defp auto_journal(company_id, ba, tx, amount, tx_type) do
-    abs_s = Dec.money(Dec.abs(amount))
-
-    {debit_id, credit_id} =
-      if tx_type == "DEPOSIT",
-        do: {ba.gl_account_id, ba.buffer_account_id},
-        else: {ba.buffer_account_id, ba.gl_account_id}
-
-    with {:ok, debit} <- account_by_id(debit_id, company_id),
-         {:ok, credit} <- account_by_id(credit_id, company_id) do
-      desc =
-        if ba.name in [nil, ""], do: "Банково извлечение", else: "Банково извлечение #{ba.name}"
-
-      desc = if tx.description in [nil, ""], do: desc, else: "#{desc} — #{tx.description}"
-
-      Journal.write_entry(
-        company_id,
-        tx.date,
-        "bank",
-        0,
-        tx.reference,
-        desc,
-        0,
-        tx.contra_name,
-        month_of(tx.date),
-        [
-          %{account: debit, direction: "debit", amount: abs_s},
-          %{account: credit, direction: "credit", amount: abs_s}
-        ]
-      )
     end
   end
 

@@ -40,7 +40,7 @@ defmodule BotyagaWeb.BankTxTest do
     {:ok, conn: conn, company: company, by_number: by_number, ba: ba}
   end
 
-  test "преглед и импорт с автоматичен запис", %{conn: conn, ba: ba} do
+  test "преглед и импорт без автоматичен запис", %{conn: conn, ba: ba} do
     conn =
       post(conn, "/v1/bank-transactions/preview", %{
         "bank_account_id" => ba["id"],
@@ -60,12 +60,13 @@ defmodule BotyagaWeb.BankTxTest do
 
     body = json_response(conn, 200)
     assert body["imported"] == 3
-    assert body["journal_count"] == 3
+    assert body["journal_count"] == 0
 
     conn = get(conn, "/v1/bank-transactions?bank_account_id=#{ba["id"]}")
     items = json_response(conn, 200)["items"]
     assert length(items) == 3
-    assert Enum.all?(items, & &1["is_booked"])
+    assert Enum.all?(items, &(not &1["is_booked"]))
+    assert Enum.all?(items, &(&1["journal_entry_id"] in [nil, 0]))
     assert Enum.find(items, &(&1["reference"] == "REF-1"))["amount"] == "-50.00"
 
     # повторен импорт пропуска дубликатите
@@ -78,8 +79,13 @@ defmodule BotyagaWeb.BankTxTest do
     assert json_response(conn, 200)["imported"] == 0
   end
 
-  test "ръчно осчетоводяване и разнасяне", %{conn: conn, ba: ba, by_number: by_number} do
-    csv = "Дата;Описание;Дебит;Кредит;Референция\n2026-02-01;Ръчно;100.00;;MAN-1\n"
+  test "осчетоводяването изисква преглед и потвърждение", %{
+    conn: conn,
+    ba: ba,
+    by_number: by_number
+  } do
+    csv =
+      "Дата;Описание;Контрагент;Дебит;Кредит;Референция\n2026-02-01;Плащане към доставчик;Доставчик ООД;100.00;;MAN-1\n"
 
     post(conn, "/v1/bank-transactions/import", %{
       "bank_account_id" => ba["id"],
@@ -87,20 +93,71 @@ defmodule BotyagaWeb.BankTxTest do
     })
 
     tx = hd(json_response(get(conn, "/v1/bank-transactions"), 200)["items"])
+    assert tx["is_booked"] == false
 
+    # без confirm → 422, нищо не се записва
     conn =
-      post(conn, "/v1/bank-transactions/#{tx["id"]}/reallocate", %{
-        "account_id" => by_number["60101"]
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book", %{
+        "contra_account_id" => by_number["401"]
+      })
+
+    assert json_response(conn, 422)
+
+    still_new =
+      hd(json_response(get(conn, "/v1/bank-transactions"), 200)["items"])
+
+    assert still_new["is_booked"] == false
+
+    # preview връща предложения запис (Дт/Кт), без да създава статия
+    conn =
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book/preview", %{
+        "contra_account_id" => by_number["401"]
+      })
+
+    preview = json_response(conn, 200)
+    assert preview["requires_confirm"] == true
+    assert preview["amount"] == "100.00"
+    assert length(preview["lines"]) == 2
+
+    debit_line = Enum.find(preview["lines"], &(&1["direction"] == "debit"))
+    credit_line = Enum.find(preview["lines"], &(&1["direction"] == "credit"))
+    assert debit_line["account_number"] == "401"
+    assert credit_line["account_number"] == "501"
+
+    still_new = hd(json_response(get(conn, "/v1/bank-transactions"), 200)["items"])
+    assert still_new["is_booked"] == false
+
+    # с confirm=true транзакцията се осчетоводява
+    conn =
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book", %{
+        "contra_account_id" => by_number["401"],
+        "confirm" => true
       })
 
     body = json_response(conn, 200)
-    assert body["replaced_lines"] == 1
+    entry_id = body["journal_entry_id"]
+    assert is_integer(entry_id)
 
-    entry = json_response(get(conn, "/v1/journal/#{tx["journal_entry_id"]}"), 200)
-    assert Enum.any?(entry["lines"], &(&1["account_number"] == "60101"))
+    booked = hd(json_response(get(conn, "/v1/bank-transactions"), 200)["items"])
+    assert booked["is_booked"] == true
+    assert booked["is_allocated"] == true
+    assert booked["journal_entry_id"] == entry_id
+
+    entry = json_response(get(conn, "/v1/journal/#{entry_id}"), 200)
+    assert Enum.any?(entry["lines"], &(&1["account_number"] == "401"))
+    assert Enum.any?(entry["lines"], &(&1["account_number"] == "501"))
+
+    # повторно осчетоводяване → 409
+    conn =
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book", %{
+        "contra_account_id" => by_number["401"],
+        "confirm" => true
+      })
+
+    assert json_response(conn, 409)
   end
 
-  test "шаблони и автоматично разнасяне", %{conn: conn, ba: ba, by_number: by_number} do
+  test "шаблони и автоматично разнасяне", %{conn: conn, by_number: by_number} do
     # банка без буфер → транзакциите остават нови за ръчно/авто разнасяне
     ba2 =
       json_response(
@@ -134,10 +191,9 @@ defmodule BotyagaWeb.BankTxTest do
 
     items = json_response(get(conn, "/v1/bank-transactions?status=allocated"), 200)["items"]
     assert length(items) == 2
-    _ = ba
   end
 
-  test "триене на транзакция трие и статията", %{conn: conn, ba: ba} do
+  test "триене на транзакция трие и статията", %{conn: conn, ba: ba, by_number: by_number} do
     csv = "Дата;Описание;Дебит;Кредит;Референция\n2026-04-01;За триене;10.00;;DEL-1\n"
 
     post(conn, "/v1/bank-transactions/import", %{
@@ -147,10 +203,18 @@ defmodule BotyagaWeb.BankTxTest do
 
     tx = hd(json_response(get(conn, "/v1/bank-transactions"), 200)["items"])
 
+    conn =
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book", %{
+        "contra_account_id" => by_number["629"],
+        "confirm" => true
+      })
+
+    entry_id = json_response(conn, 200)["journal_entry_id"]
+
     conn = delete(conn, "/v1/bank-transactions/#{tx["id"]}")
     assert response(conn, 204)
 
-    conn = get(conn, "/v1/journal/#{tx["journal_entry_id"]}")
+    conn = get(conn, "/v1/journal/#{entry_id}")
     assert json_response(conn, 404)
   end
 end

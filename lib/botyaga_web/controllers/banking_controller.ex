@@ -68,6 +68,15 @@ defmodule BotyagaWeb.BankingController do
     end
   end
 
+  def book_preview(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, data} <- Tx.book_preview(company_id, id, params) do
+      Respond.ok(conn, data)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   def book(conn, %{"id" => id} = params) do
     with {:ok, company_id} <- active(conn),
          {:ok, data} <- Tx.book(company_id, conn.assigns.current_user.username, id, params) do

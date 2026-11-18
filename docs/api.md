@@ -171,7 +171,9 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 | POST | `/v1/bank-transactions/preview` | преглед на импорт |
 | POST | `/v1/bank-transactions/import` | импорт (CSV, MT940, XML) |
 | POST | `/v1/bank-transactions/auto-allocate`, `/auto-allocate/preview` | автоматично разнасяне |
-| POST | `/v1/bank-transactions/:id/book`, `/reallocate` | ръчно осчетоводяване / разнасяне |
+| POST | `/v1/bank-transactions/:id/book/preview` | преглед на записа преди осчетоводяване (без запис в базата) |
+| POST | `/v1/bank-transactions/:id/book` | осчетоводяване **с потвърждение** (`confirm=true`) |
+| POST | `/v1/bank-transactions/:id/reallocate` | разнасяне |
 | DELETE | `/v1/bank-transactions/:id` | изтриване |
 | POST | `/v1/bank-transactions/bulk/delete` | групово изтриване |
 | GET / POST | `/v1/bank-matching-rules` | правила |

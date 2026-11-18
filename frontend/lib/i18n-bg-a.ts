@@ -372,6 +372,8 @@ export const bgA = {
   "bank_tx.reallocated": "Транзакцията е разнесена.",
   "bank_tx.book_title": "Ръчно осчетоводяване",
   "bank_tx.book_hint": "Изберете контрагент и кореспондираща сметка:",
+  "bank_tx.book_preview": "Преглед на записа — създава се само при потвърждаване",
+  "bank_tx.account": "Сметка",
   "bank_tx.debit": "Дебит",
   "bank_tx.credit": "Кредит",
   "bank_tx.reallocate_title": "Разнасяне от буферна сметка",
@@ -399,7 +401,7 @@ export const bgA = {
   "bank_tx.importing": "Импортиране…",
   "bank_tx.import_n": "Импортирай {n} транзакции",
   "bank_tx.imported": "Импортирани {n} транзакции.",
-  "bank_tx.imported_with_journal": "Импортирани {n} транзакции, създадени {j} счетоводни записа.",
+  "bank_tx.imported_pending": "Импортирани {n} транзакции — осчетоводяват се ръчно, всяка с потвърждение.",
   // контрагенти
   "counterparts.title": "Контрагенти",
   "counterparts.name": "Име",

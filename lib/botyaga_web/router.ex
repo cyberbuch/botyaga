@@ -170,6 +170,7 @@ defmodule BotyagaWeb.Router do
     post "/bank-transactions/bulk/delete", BankingController, :bulk_delete_transactions
     post "/bank-transactions/auto-allocate", BankingController, :auto_allocate
     post "/bank-transactions/auto-allocate/preview", BankingController, :allocate_preview
+    post "/bank-transactions/:id/book/preview", BankingController, :book_preview
     post "/bank-transactions/:id/book", BankingController, :book
     post "/bank-transactions/:id/reallocate", BankingController, :reallocate
     delete "/bank-transactions/:id", BankingController, :delete_transaction

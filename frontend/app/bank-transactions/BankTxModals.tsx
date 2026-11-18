@@ -1,6 +1,6 @@
 "use client";
 
-import { BankTransaction, Counterpart, Account, JeLine, Preview } from "./types";
+import { BankTransaction, Counterpart, Account, BookPreview, JeLine, Preview } from "./types";
 import { fmtAmount, isPositive } from "./helpers";
 import { AccountSelect, CounterpartSelect } from "./BankTxSelects";
 
@@ -30,6 +30,7 @@ export function BankTxModals(props: {
   setBookCredit: (v: number) => void;
   handleBook: () => void;
   bookLoading: boolean;
+  bookPreview: BookPreview | null;
   reallocTx: BankTransaction | null;
   setReallocTx: (v: BankTransaction | null) => void;
   reallocLines: JeLine[];
@@ -50,7 +51,7 @@ export function BankTxModals(props: {
     previewOpen, setPreviewOpen, previewLoading, preview, importing, handleImport,
     bookTx, setBookTx, bookCpId, bookCpSearch, setBookCpSearch, setBookCpId,
     bookContra, bookAccSearch, setBookAccSearch, setBookContra, bookDebit, setBookDebit,
-    bookCredit, setBookCredit, handleBook, bookLoading,
+    bookCredit, setBookCredit, handleBook, bookLoading, bookPreview,
     reallocTx, setReallocTx, reallocLines, reallocCpId, reallocCpSearch, setReallocCpSearch,
     setReallocCpId, reallocAccount, reallocAccSearch, setReallocAccSearch, setReallocAccount,
     handleReallocate, reallocLoading, bankGlId,
@@ -288,6 +289,35 @@ export function BankTxModals(props: {
               </div>
               </>
             )}
+            {bookPreview && (
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label className="label">{t("bank_tx.book_preview")}</label>
+                <table className="table" style={{ fontSize: 13 }}>
+                  <thead>
+                    <tr>
+                      <th>{t("bank_tx.account")}</th>
+                      <th style={{ textAlign: "right" }}>{t("bank_tx.debit")}</th>
+                      <th style={{ textAlign: "right" }}>{t("bank_tx.credit")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookPreview.lines.map((l) => (
+                      <tr key={`${l.account_id}-${l.direction}`}>
+                        <td>
+                          {l.account_number} {l.account_name}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {l.direction === "debit" ? fmtAmount(l.amount) : ""}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          {l.direction === "credit" ? fmtAmount(l.amount) : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <div className="form-actions">
               <button className="btn" onClick={() => setBookTx(null)} type="button">
                 {t("common.cancel")}
@@ -295,7 +325,7 @@ export function BankTxModals(props: {
               <button
                 className="btn btn-primary"
                 onClick={handleBook}
-                disabled={bookLoading}
+                disabled={bookLoading || !bookPreview}
                 type="button"
               >
                 {t("bank_tx.book")}

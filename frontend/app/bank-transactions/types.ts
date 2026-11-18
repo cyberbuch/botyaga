@@ -67,3 +67,21 @@ export interface JeLine {
   fx_quantity?: string;
   fx_rate?: string;
 }
+
+export interface BookPreviewLine {
+  account_id: number;
+  account_number: string;
+  account_name: string;
+  direction: string;
+  amount: string;
+}
+
+export interface BookPreview {
+  transaction_id: number;
+  date: string;
+  amount: string;
+  currency: string;
+  description: string;
+  requires_confirm: boolean;
+  lines: BookPreviewLine[];
+}
