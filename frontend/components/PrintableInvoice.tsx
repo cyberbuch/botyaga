@@ -9,7 +9,7 @@ import {
   docTypeTitle,
   formatBgDate,
 } from "../lib/invoice";
-import { api, ListResponse } from "../lib/api";
+import { api, fetchAll, ListResponse } from "../lib/api";
 import { VatExemption, vatexDisplay } from "../lib/vatExemptions";
 import { unitSymbol } from "../lib/units";
 import { useI18n } from "./I18nProvider";
@@ -19,6 +19,13 @@ function fmt(s: string | undefined): string {
   const n = parseFloat(String(s).replace(",", "."));
   if (Number.isNaN(n)) return s;
   return n.toFixed(2);
+}
+
+interface BankAccount {
+  id: number;
+  name: string;
+  iban: string;
+  bic?: string;
 }
 
 function partyBlock(title: string, p: InvoiceParty | undefined, extra?: string) {
@@ -48,11 +55,15 @@ export function PrintableInvoice({
 }) {
   const { t, lang } = useI18n();
   const [exemptions, setExemptions] = useState<VatExemption[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   useEffect(() => {
     api
       .get<ListResponse<VatExemption>>("/v1/vat-exemptions")
       .then((d) => setExemptions(d.items ?? []))
       .catch(() => setExemptions([]));
+    fetchAll<BankAccount>("/v1/bank-accounts")
+      .then(setBankAccounts)
+      .catch(() => setBankAccounts([]));
   }, []);
   const company = invoice.company;
   const cp = invoice.counterpart;
@@ -62,6 +73,13 @@ export function PrintableInvoice({
   const lines = invoice.lines ?? [];
   const currency = invoice.currency || "BGN";
   const cancelled = invoice.status === "cancelled";
+
+  const bank = bankAccounts.find((b) => b.id === invoice.bank_account_id);
+  const bankPayment =
+    invoice.payment_method === "банков превод" || (invoice.bank_account_id ?? 0) > 0;
+  const bankName = bank?.name || "";
+  const bankIban = bank?.iban || company?.iban || "";
+  const bankBic = bank?.bic || company?.bic || "";
 
   return (
     <div className="print-sheet">
@@ -116,6 +134,7 @@ export function PrintableInvoice({
             <th className="r">{t("invoices.qty")}</th>
             <th>{t("products.unit")}</th>
             <th className="r">{t("invoices.unit_price")}</th>
+            <th className="r">{t("invoices.vat")}%</th>
             <th className="r">{t("invoices.line_total")}</th>
           </tr>
         </thead>
@@ -127,6 +146,7 @@ export function PrintableInvoice({
               <td className="r">{l.quantity}</td>
               <td>{unitSymbol(l.unit)}</td>
               <td className="r">{fmt(l.unit_price)}</td>
+              <td className="r">{l.vat_rate ?? ""}</td>
               <td className="r">{fmt(l.net_amount)}</td>
             </tr>
           ))}
@@ -135,22 +155,37 @@ export function PrintableInvoice({
 
       <div className="print-bottom">
         <div className="print-meta">
-          {company?.iban && (
+          {bankPayment ? (
             <div>
-              <b>{t("invoices.bank_account")}</b>
-              <div>IBAN: {company.iban}</div>
-              {company.bic && <div>BIC: {company.bic}</div>}
+              <div>
+                {t("invoices.payment_method")}: {t("invoices.by_bank")}
+              </div>
+              {invoice.due_date && (
+                <div>
+                  {t("invoices.due_date")}: {formatBgDate(invoice.due_date)}
+                </div>
+              )}
+              {bankName && (
+                <div>
+                  {t("invoices.bank_name")}: {bankName}
+                </div>
+              )}
+              {bankIban && <div>IBAN: {bankIban}</div>}
+              {bankBic && <div>BIC: {bankBic}</div>}
             </div>
-          )}
-          {invoice.payment_method && (
-            <div>
-              {t("invoices.payment_method")}: {invoice.payment_method}
-            </div>
-          )}
-          {invoice.due_date && (
-            <div>
-              {t("invoices.due_date")}: {invoice.due_date}
-            </div>
+          ) : (
+            <>
+              {invoice.payment_method && (
+                <div>
+                  {t("invoices.payment_method")}: {invoice.payment_method}
+                </div>
+              )}
+              {invoice.due_date && (
+                <div>
+                  {t("invoices.due_date")}: {formatBgDate(invoice.due_date)}
+                </div>
+              )}
+            </>
           )}
           {invoice.notes && (
             <div>
@@ -210,6 +245,17 @@ export function PrintableInvoice({
           <div className="print-words">
             {t("invoices.in_words")}: {numberToWordsBg(invoice.total_amount, currency)}
           </div>
+        </div>
+      </div>
+
+      <div className="print-signatures">
+        <div>
+          {t("invoices.received_by")}: {recipient?.contact_person || ""}
+          <span className="sig-line" />
+        </div>
+        <div>
+          {t("invoices.prepared_by")}: {supplier?.mol || ""}
+          <span className="sig-line" />
         </div>
       </div>
     </div>

@@ -551,6 +551,23 @@
   font-size: 12px;
 }
 
+.print-signatures {
+  display: flex;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.print-signatures > div {
+  flex: 1;
+}
+
+.print-signatures .sig-line {
+  display: inline-block;
+  min-width: 180px;
+  border-bottom: 1px dashed #000;
+  margin-left: 6px;
+}
+
 .card-pad {
   padding: 20px 24px;
 }
