@@ -134,6 +134,7 @@ export interface Invoice {
   journal_entry_id?: number;
   is_paid?: boolean;
   payment_entry_id?: number;
+  bank_account_id?: number;
   location_id?: number;
   exclude_vat?: number;
   vat_article?: string;

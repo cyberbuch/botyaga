@@ -29,6 +29,7 @@ defmodule Botyaga.Invoicing.Head do
         vat_exemption_reason: string(params, "vat_exemption_reason"),
         original_invoice_id: Params.integer(params, "original_invoice_id") || 0,
         location_id: Params.integer(params, "location_id") || 0,
+        bank_account_id: Params.integer(params, "bank_account_id") || 0,
         exclude_vat: flag(params, "exclude_vat"),
         vat_article: string(params, "vat_article"),
         customs_statistical: opt_money(params, "customs_statistical"),
@@ -57,6 +58,7 @@ defmodule Botyaga.Invoicing.Head do
       |> put_int(params, "counterpart_id")
       |> put_int(params, "original_invoice_id")
       |> put_int(params, "location_id")
+      |> put_int(params, "bank_account_id")
       |> put_flag(params, "exclude_vat")
 
     head =

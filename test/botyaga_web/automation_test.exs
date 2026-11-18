@@ -216,6 +216,45 @@ defmodule BotyagaWeb.AutomationTest do
       assert lines["411"]["direction"] == "credit"
     end
 
+    test "банков превод ползва ГЛ сметката на избраната банкова сметка", %{
+      conn: conn,
+      cp_id: cp_id,
+      service_id: service_id
+    } do
+      acc =
+        json_response(
+          post(conn, "/v1/accounts", %{"number" => "5031", "name" => "Конкретна банка"}),
+          201
+        )
+
+      ba =
+        json_response(
+          post(conn, "/v1/bank-accounts", %{
+            "iban" => "BG80BNPA94405031",
+            "name" => "Моята банка",
+            "gl_account_id" => acc["id"]
+          }),
+          201
+        )
+
+      inv =
+        make_invoice(conn, cp_id, sale_line(service_id), %{
+          "payment_method" => "банков превод",
+          "bank_account_id" => ba["id"]
+        })
+
+      shown = json_response(get(conn, "/v1/invoices/#{inv["id"]}"), 200)
+      assert shown["bank_account_id"] == ba["id"]
+
+      post(conn, "/v1/invoices/#{inv["id"]}/post", %{})
+      pay = json_response(post(conn, "/v1/invoices/#{inv["id"]}/pay", %{}), 201)
+
+      lines = journal_lines(conn, pay["id"])
+      assert lines["5031"]["direction"] == "debit"
+      assert lines["411"]["direction"] == "credit"
+      refute Map.has_key?(lines, "503")
+    end
+
     test "unpay трие статията", %{conn: conn, cp_id: cp_id, service_id: service_id} do
       inv = make_invoice(conn, cp_id, sale_line(service_id), %{"payment_method" => "в брой"})
       post(conn, "/v1/invoices/#{inv["id"]}/post", %{})

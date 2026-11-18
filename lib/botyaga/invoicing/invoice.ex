@@ -25,6 +25,7 @@ defmodule Botyaga.Invoicing.Invoice do
     field :vat_exemption_reason, :string
     field :original_invoice_id, :id
     field :location_id, :id
+    field :bank_account_id, :id, default: 0
     field :journal_entry_id, :id
     field :exclude_vat, :integer, default: 0
     field :vat_article, :string

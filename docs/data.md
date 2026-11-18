@@ -43,7 +43,7 @@ PostgreSQL през Ecto. Миграции в `priv/repo/migrations/` (10 фай
 
 | Таблица | Ключови полета | Бележка |
 |---------|----------------|---------|
-| `invoices` | `company_id`, `direction`, `document_type`, `number`, `issue_date`, `due_date`, `counterpart_id`, `counterpart_name`, `currency`, `net_amount`, `vat_amount`, `total_amount`, `status`, `payment_method`, `tax_event_date`, `accounting_month`, `currency_rate`, `discount_*`, `vat_exemption_reason`, `original_invoice_id`, `location_id`, `journal_entry_id`, `exclude_vat`, `vat_article`, `customs_*` | чернова/осчетоводена/кредитно/проформа |
+| `invoices` | `company_id`, `direction`, `document_type`, `number`, `issue_date`, `due_date`, `counterpart_id`, `counterpart_name`, `currency`, `net_amount`, `vat_amount`, `total_amount`, `status`, `payment_method`, `tax_event_date`, `accounting_month`, `currency_rate`, `discount_*`, `vat_exemption_reason`, `original_invoice_id`, `location_id`, `bank_account_id`, `journal_entry_id`, `exclude_vat`, `vat_article`, `customs_*` | чернова/осчетоводена/кредитно/проформа |
 | `invoice_lines` | `invoice_id`, `code`, `description`, `quantity`, `unit`, `unit_price`, `vat_rate`, `net_amount`, `vat_amount`, `total_amount`, `product_id` | |
 | `journal_entries` | `company_id`, `entry_date`, `document_type`, `document_id`, `document_number`, `description`, `vat_type`, `counterpart_id`, `counterpart_name`, `document_date`, `vat_period` | гланка на дневников запис |
 | `journal_lines` | `entry_id`, `account_id`, `account_number`, `account_name`, `direction`, `amount`, `vat_amount`, `currency`, `fx_quantity`, `fx_rate` | `direction` е `debit`/`credit` |

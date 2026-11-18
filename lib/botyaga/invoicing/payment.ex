@@ -7,7 +7,7 @@ defmodule Botyaga.Invoicing.Payment do
 
   import Ecto.Query
 
-  alias Botyaga.{Audit, Invoicing, Journal, Periods, Repo}
+  alias Botyaga.{Audit, Banking, Catalog, Invoicing, Journal, Periods, Repo}
   alias Botyaga.Companies.{Company, Defaults}
   alias Botyaga.Invoicing.Money
   alias Botyaga.Journal.{Entry, Line}
@@ -22,7 +22,7 @@ defmodule Botyaga.Invoicing.Payment do
          :ok <- not_paid(company_id, inv),
          company = Repo.get!(Company, company_id),
          {:ok, method} <- method_of(inv.payment_method),
-         {:ok, pay_acct} <- payment_account(company, inv.direction, method),
+         {:ok, pay_acct} <- payment_account(company, inv, method),
          {:ok, cp_acct} <- Defaults.resolve(company, cp_role(inv.direction)),
          :ok <- Periods.assert_open(company_id, inv.accounting_month) do
       amount = Money.amount_for_doc(inv.document_type, inv.total_amount)
@@ -105,10 +105,31 @@ defmodule Botyaga.Invoicing.Payment do
     end
   end
 
-  defp payment_account(company, _direction, :cash), do: Defaults.resolve(company, "cash")
-  defp payment_account(company, _direction, :bank), do: Defaults.resolve(company, "bank")
-  defp payment_account(company, "in", :card), do: Defaults.resolve(company, "card_purchase")
-  defp payment_account(company, _direction, :card), do: Defaults.resolve(company, "card_sale")
+  defp payment_account(company, _inv, :cash), do: Defaults.resolve(company, "cash")
+
+  defp payment_account(company, inv, :bank) do
+    case bank_gl(company, inv.bank_account_id) do
+      {:ok, acct} -> {:ok, acct}
+      :error -> Defaults.resolve(company, "bank")
+    end
+  end
+
+  defp payment_account(company, %{direction: "in"}, :card),
+    do: Defaults.resolve(company, "card_purchase")
+
+  defp payment_account(company, _inv, :card), do: Defaults.resolve(company, "card_sale")
+
+  defp bank_gl(_company, id) when id <= 0, do: :error
+
+  defp bank_gl(company, id) do
+    with %Banking.Account{gl_account_id: gl} when gl > 0 <-
+           Repo.get_by(Banking.Account, id: id, company_id: company.id),
+         %Catalog.Account{} = acct <- Repo.get_by(Catalog.Account, id: gl, company_id: company.id) do
+      {:ok, acct}
+    else
+      _ -> :error
+    end
+  end
 
   defp cp_role("in"), do: "suppliers"
   defp cp_role(_), do: "customers"
