@@ -95,6 +95,66 @@ defmodule BotyagaWeb.PrintingTest do
       conn = get(conn, "/v1/invoices/#{inv["id"]}/print?format=bogus")
       assert json_response(conn, 422)["detail"] == "format трябва да е pdf/docx/odt"
     end
+
+    test "банкова сметка и подписи в печата", %{
+      conn: conn,
+      company: company,
+      cp: cp,
+      goods: goods,
+      by_number: by_number
+    } do
+      patch(conn, "/v1/counterparts/#{cp["id"]}", %{"contact_person" => "Мария Контакт"})
+
+      ba =
+        json_response(
+          post(conn, "/v1/bank-accounts", %{
+            "iban" => "BG80BNPA94405031",
+            "name" => "ОББ",
+            "bic" => "UBBSBGSF",
+            "gl_account_id" => by_number["503"]
+          }),
+          201
+        )
+
+      inv =
+        json_response(
+          post(conn, "/v1/invoices", %{
+            "direction" => "out",
+            "issue_date" => "2026-01-15",
+            "counterpart_id" => cp["id"],
+            "payment_method" => "банков превод",
+            "bank_account_id" => ba["id"],
+            "lines" => [
+              %{
+                "product_id" => goods["id"],
+                "description" => "Продажба",
+                "quantity" => "2",
+                "unit_price" => "100.00",
+                "vat_rate" => "20",
+                "net_amount" => "200.00",
+                "vat_amount" => "40.00",
+                "total_amount" => "240.00"
+              }
+            ]
+          }),
+          201
+        )
+
+      {:ok, doc} = Botyaga.Printing.Load.load(company.id, inv["id"])
+      blocks = Botyaga.Printing.Invoice.blocks(doc, false)
+
+      lines = for {:line, t} <- blocks, do: t
+      assert Enum.any?(lines, &(&1 =~ "По банкова сметка"))
+      assert Enum.any?(lines, &(&1 =~ "Банка: ОББ"))
+      assert Enum.any?(lines, &(&1 =~ "IBAN: BG80BNPA94405031"))
+      assert Enum.any?(lines, &(&1 =~ "BIC: UBBSBGSF"))
+
+      tables = for {:table, rows} <- blocks, do: rows
+      flat = List.flatten(tables)
+      assert Enum.any?(flat, &(&1 =~ "Съставил: Иван Петров"))
+      assert Enum.any?(flat, &(&1 =~ "Получил: Мария Контакт"))
+      assert Enum.any?(tables, fn rows -> Enum.member?(hd(rows), "ДДС%") end)
+    end
   end
 
   describe "експорт на справки" do

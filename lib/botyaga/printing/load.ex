@@ -1,7 +1,7 @@
 defmodule Botyaga.Printing.Load do
   @moduledoc "Фактура, редове, фирма и контрагент за печат и UBL. Порт на `print_load.rs`."
 
-  alias Botyaga.{Companies, Invoicing, Repo}
+  alias Botyaga.{Banking, Companies, Invoicing, Repo}
   alias Botyaga.Catalog.Counterpart
   alias Botyaga.Invoicing.Invoice
   alias BotyagaWeb.Render
@@ -18,6 +18,7 @@ defmodule Botyaga.Printing.Load do
          lines: Map.get(value, :lines, []),
          company: company_json(firm_id),
          counterpart: counterpart_json(inv.counterpart_id, firm_id),
+         bank: bank_json(inv.bank_account_id, firm_id),
          original_number: orig_no,
          original_date: orig_date
        }}
@@ -39,6 +40,22 @@ defmodule Botyaga.Printing.Load do
   end
 
   defp counterpart_json(_id, _firm_id), do: %{}
+
+  defp bank_json(id, firm_id) when id > 0 do
+    case Repo.get_by(Banking.Account, id: id, company_id: firm_id) do
+      nil ->
+        %{}
+
+      account ->
+        %{
+          name: String.trim(account.name || ""),
+          iban: String.trim(account.iban || ""),
+          bic: String.trim(account.bic || "")
+        }
+    end
+  end
+
+  defp bank_json(_id, _firm_id), do: %{}
 
   defp original(company_id, id) when id > 0 do
     case Repo.get_by(Invoice, id: id, company_id: company_id) do

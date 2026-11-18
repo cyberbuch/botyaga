@@ -31,6 +31,8 @@ defmodule Botyaga.Ubl do
       if customer.name == "", do: %{customer | name: inv.counterpart_name || ""}, else: customer
 
     currency = or_trim(inv.currency, "EUR")
+    pay_iban = or_trim(Load.field(doc.bank, :iban), company.iban)
+    pay_bic = or_trim(Load.field(doc.bank, :bic), company.bic)
     root = if credit, do: "CreditNote", else: "Invoice"
 
     ns =
@@ -115,17 +117,17 @@ defmodule Botyaga.Ubl do
         cbc("PaymentMeansCode", pay_code(String.trim(inv.payment_method || "")))
 
     out =
-      if company.iban != "" do
+      if pay_iban != "" do
         branch =
-          if company.bic != "",
+          if pay_bic != "",
             do:
               open("FinancialInstitutionBranch") <>
-                cbc("ID", company.bic) <> close("FinancialInstitutionBranch"),
+                cbc("ID", pay_bic) <> close("FinancialInstitutionBranch"),
             else: ""
 
         out <>
           open("PayeeFinancialAccount") <>
-          cbc("ID", company.iban) <> branch <> close("PayeeFinancialAccount")
+          cbc("ID", pay_iban) <> branch <> close("PayeeFinancialAccount")
       else
         out
       end

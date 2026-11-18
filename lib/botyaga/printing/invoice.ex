@@ -73,24 +73,39 @@ defmodule Botyaga.Printing.Invoice do
           {:totals, totals(inv, currency)}
         ]
 
+    method = String.trim(inv.payment_method || "")
+    bank_payment = method == "банков превод" or inv.bank_account_id > 0
+    bank_name = or_trim(doc.bank[:name], "")
+    bank_iban = or_trim(doc.bank[:iban], company.iban)
+    bank_bic = or_trim(doc.bank[:bic], company.bic)
+
     out =
-      if company.iban != "" do
-        bank = "IBAN: #{company.iban}"
-        bank = if company.bic != "", do: bank <> " · BIC: " <> company.bic, else: bank
-        out ++ [{:line, "БАНКОВА СМЕТКА · #{bank}"}]
+      if bank_payment do
+        out ++ [{:line, "Начин: По банкова сметка"}]
       else
-        out
+        if method != "", do: out ++ [{:line, "Начин на плащане: #{method}"}], else: out
       end
 
     out =
-      if String.trim(inv.payment_method || "") != "",
-        do: out ++ [{:line, "Начин на плащане: #{String.trim(inv.payment_method)}"}],
+      if String.trim(inv.due_date || "") != "",
+        do: out ++ [{:line, "Срок: #{Printing.bg_date(inv.due_date)}"}],
         else: out
 
     out =
-      if String.trim(inv.due_date || "") != "",
-        do: out ++ [{:line, "Срок за плащане: #{String.trim(inv.due_date)}"}],
-        else: out
+      if bank_payment do
+        bank_lines =
+          [
+            {"Банка: #{bank_name}", bank_name != ""},
+            {"IBAN: #{bank_iban}", bank_iban != ""},
+            {"BIC: #{bank_bic}", bank_bic != ""}
+          ]
+          |> Enum.filter(&elem(&1, 1))
+          |> Enum.map(&{:line, elem(&1, 0)})
+
+        out ++ bank_lines
+      else
+        out
+      end
 
     out =
       if String.trim(inv.notes || "") != "",
@@ -108,7 +123,20 @@ defmodule Botyaga.Printing.Invoice do
         else: out
 
     total = Dec.money(Dec.or0(inv.total_amount))
-    out ++ [{:line, "Словом: #{Words.words(total, currency)}"}]
+    out = out ++ [{:line, "Словом: #{Words.words(total, currency)}"}]
+    out ++ [{:table, signatures(recipient, supplier)}]
+  end
+
+  defp signatures(rec, sup) do
+    received = if rec.contact != "", do: rec.contact <> " ", else: ""
+    prepared = if sup.mol != "", do: sup.mol <> " ", else: ""
+
+    [
+      [
+        "Получил: #{received}____________________",
+        "Съставил: #{prepared}____________________"
+      ]
+    ]
   end
 
   defp parties(rec, sup) do
@@ -127,7 +155,7 @@ defmodule Botyaga.Printing.Invoice do
   end
 
   defp lines(doc) do
-    header = ["No", "Стока / услуга", "К-во", "Мярка", "Ед. цена", "Общо"]
+    header = ["No", "Стока / услуга", "К-во", "Мярка", "Ед. цена", "ДДС%", "Общо"]
 
     rows =
       doc.lines
@@ -139,6 +167,7 @@ defmodule Botyaga.Printing.Invoice do
           line.quantity || "",
           unit_display(line.unit || ""),
           Dec.money(Dec.or0(line.unit_price)),
+          line.vat_rate || "",
           Dec.money(Dec.or0(line.net_amount))
         ]
       end)
