@@ -190,21 +190,6 @@ function BankTransactionsInner() {
     }
   };
 
-  const applyProcess = async () => {
-    setProcBusy(true);
-    setError("");
-    try {
-      const r = await api.post<ProcResult>("/v1/bank-transactions/auto-allocate", {});
-      setProcPreview(null);
-      setSuccess(`${t("brules.matched")}: ${r.matched}, ${t("brules.unmatched")}: ${r.unmatched}, ${t("brules.errors")}: ${r.errors}`);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setProcBusy(false);
-    }
-  };
-
   const handleFile = async (file: File) => {
     if (!selectedAccount) {
       setError(t("bank_tx.select_account"));
@@ -620,12 +605,12 @@ function BankTransactionsInner() {
               ))}
               {procPreview.matched === 0 && <div className="muted">{t("brules.empty")}</div>}
             </div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              {t("bank_tx.process_manual_hint")}
+            </p>
             <div className="form-actions">
-              <button className="btn btn-primary" type="button" disabled={procBusy || procPreview.matched === 0} onClick={() => void applyProcess()}>
-                {t("brules.apply")}
-              </button>
               <button className="btn" type="button" onClick={() => setProcPreview(null)}>
-                {t("common.cancel")}
+                {t("common.close")}
               </button>
             </div>
           </div>

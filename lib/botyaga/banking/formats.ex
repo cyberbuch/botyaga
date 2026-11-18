@@ -36,8 +36,14 @@ defmodule Botyaga.Banking.Formats do
     trimmed = content |> String.trim() |> String.trim_leading("﻿")
 
     case fetch(hint) do
-      {:ok, mod} -> mod.parse(trimmed)
-      :error -> auto_detect(trimmed)
+      {:ok, mod} ->
+        parsed = mod.parse(trimmed)
+
+        # грешен hint (файлът е друг формат) → авто-разпознаване, вместо 0 реда
+        if parsed.txs == [], do: auto_detect(trimmed), else: parsed
+
+      :error ->
+        auto_detect(trimmed)
     end
   end
 

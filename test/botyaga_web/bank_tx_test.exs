@@ -184,13 +184,25 @@ defmodule BotyagaWeb.BankTxTest do
     body = json_response(conn, 200)
     assert body["matched"] == 2
 
+    # груповото обработване е само преглед — НЕ осчетоводява автоматично
     conn = post(conn, "/v1/bank-transactions/auto-allocate", %{})
     body = json_response(conn, 200)
     assert body["matched"] == 2
-    assert body["errors"] == 0
+    assert json_response(get(conn, "/v1/bank-transactions?status=allocated"), 200)["items"] == []
+
+    # осчетоводяването е поединично, с потвърждение и избрана насрещна сметка
+    tx = hd(json_response(get(conn, "/v1/bank-transactions?status=new"), 200)["items"])
+
+    conn =
+      post(conn, "/v1/bank-transactions/#{tx["id"]}/book", %{
+        "confirm" => true,
+        "contra_account_id" => by_number["60201"]
+      })
+
+    assert response(conn, 200)
 
     items = json_response(get(conn, "/v1/bank-transactions?status=allocated"), 200)["items"]
-    assert length(items) == 2
+    assert length(items) == 1
   end
 
   test "триене на транзакция трие и статията", %{conn: conn, ba: ba, by_number: by_number} do

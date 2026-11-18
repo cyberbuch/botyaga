@@ -8,7 +8,7 @@ defmodule Botyaga.Banking.Rules do
   import Ecto.Query
 
   alias Botyaga.{Catalog, Params, Repo}
-  alias Botyaga.Banking.{Rule, Transaction, Tx}
+  alias Botyaga.Banking.{Rule, Transaction}
 
   @cyr [
     {"а", "a"},
@@ -278,12 +278,13 @@ defmodule Botyaga.Banking.Rules do
     {:ok, %{created: created}}
   end
 
-  ## Разнасяне
+  ## Разнасяне (само преглед — никога не осчетоводява автоматично;
+  ## осчетоводяването е поединично през `Tx.book_tx` с потвърждение)
 
-  def preview(company_id, sub), do: allocate(company_id, sub, false)
-  def auto_allocate(company_id, sub), do: allocate(company_id, sub, true)
+  def preview(company_id, sub), do: allocate(company_id, sub)
+  def auto_allocate(company_id, sub), do: allocate(company_id, sub)
 
-  defp allocate(company_id, sub, apply) do
+  defp allocate(company_id, _sub) do
     rules = rules_of(company_id)
 
     counterparts =
@@ -325,41 +326,17 @@ defmodule Botyaga.Banking.Rules do
             cp_name =
               Enum.find_value(counterparts, "", fn {id, name} -> if id == cp, do: name end)
 
-            if not apply do
-              detail = %{
-                id: tx.id,
-                status: "matched",
-                rule: rule.name,
-                account: account_label(accounts, rule.account_id),
-                counterpart: cp_name,
-                amount: tx.amount,
-                text: String.slice(text, 0, 80)
-              }
+            detail = %{
+              id: tx.id,
+              status: "matched",
+              rule: rule.name,
+              account: account_label(accounts, rule.account_id),
+              counterpart: cp_name,
+              amount: tx.amount,
+              text: String.slice(text, 0, 80)
+            }
 
-              {matched + 1, unmatched, errors, hits, add_detail(details, detail)}
-            else
-              result =
-                if tx.is_booked == 0 do
-                  Tx.book_tx(company_id, sub, tx.id, rule.account_id, cp, nil, nil)
-                else
-                  Tx.reallocate_tx(company_id, sub, tx.id, rule.account_id, cp)
-                end
-
-              case result do
-                {:ok, _} ->
-                  {matched + 1, unmatched, errors, hits,
-                   add_detail(details, %{
-                     id: tx.id,
-                     status: "matched",
-                     rule: rule.name,
-                     account: account_label(accounts, rule.account_id)
-                   })}
-
-                {:error, {_status, detail}} ->
-                  {matched, unmatched, errors + 1, hits,
-                   add_detail(details, %{id: tx.id, status: "error", error: detail})}
-              end
-            end
+            {matched + 1, unmatched, errors, hits, add_detail(details, detail)}
         end
       end)
 

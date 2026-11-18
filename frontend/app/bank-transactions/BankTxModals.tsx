@@ -247,17 +247,35 @@ export function BankTxModals(props: {
               />
             </div>
             {bankGlId(bookTx) > 0 ? (
-              <div className="field" style={{ marginBottom: 16 }}>
-                <label className="label">{t("bank_tx.contra_account")}</label>
-                <AccountSelect
-                  t={t}
-                  chartAccounts={chartAccounts}
-                  value={bookContra}
-                  search={bookAccSearch}
-                  onSearch={setBookAccSearch}
-                  onChange={setBookContra}
-                />
-              </div>
+              <>
+                <div className="field" style={{ marginBottom: 12 }}>
+                  <label className="label">{t("bank_tx.fixed_side")}</label>
+                  <div
+                    className="input"
+                    style={{ background: "var(--surface-2)", cursor: "default" }}
+                  >
+                    {(() => {
+                      const gl = bankGlId(bookTx);
+                      const acc = chartAccounts.find((a) => a.id === gl);
+                      const debit = parseFloat(String(bookTx.amount).replace(",", ".")) >= 0;
+                      return `${acc ? `${acc.number} ${acc.name}` : gl} · ${
+                        debit ? t("bank_tx.debit") : t("bank_tx.credit")
+                      }`;
+                    })()}
+                  </div>
+                </div>
+                <div className="field" style={{ marginBottom: 16 }}>
+                  <label className="label">{t("bank_tx.contra_account")}</label>
+                  <AccountSelect
+                    t={t}
+                    chartAccounts={chartAccounts}
+                    value={bookContra}
+                    search={bookAccSearch}
+                    onSearch={setBookAccSearch}
+                    onChange={setBookContra}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <p className="muted" style={{ marginBottom: 12 }}>
