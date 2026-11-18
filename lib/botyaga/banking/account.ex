@@ -12,6 +12,7 @@ defmodule Botyaga.Banking.Account do
     field :gl_account_id, :integer, default: 0
     field :buffer_account_id, :integer, default: 0
     field :balance, :string
+    field :statement_format, :string, default: ""
 
     timestamps(type: :utc_datetime)
   end

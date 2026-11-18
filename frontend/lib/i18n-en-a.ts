@@ -340,6 +340,8 @@ export const enA = {
   "bank_accounts.balance": "Balance",
   "bank_accounts.gl_account": "GL account",
   "bank_accounts.buffer_account": "Buffer account",
+  "bank_accounts.statement_format": "Statement format",
+  "bank_accounts.format_auto": "Auto-detect",
   "bank_accounts.pick_account": "— pick an account —",
   "bank_accounts.name_placeholder": "Main account",
   "bank_accounts.bank_name_placeholder": "UniCredit Bulbank",

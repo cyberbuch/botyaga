@@ -21,7 +21,6 @@ const ROLES = [
   "vat_purchase",
   "vat_sale",
   "cash",
-  "bank",
   "card_purchase",
   "card_sale",
   "revenues",

@@ -11,7 +11,7 @@ defmodule Botyaga.Banking.Tx do
   import Ecto.Query
 
   alias Botyaga.{Audit, Catalog, Companies, Dec, Journal, Params, Periods, Rates, Repo}
-  alias Botyaga.Banking.{Account, Csv, Transaction}
+  alias Botyaga.Banking.{Account, Formats, Transaction}
 
   @unknown "Непознат формат на файла. Поддържаните формати са: OBB XML, ISO camt.053, PostBank XML, MT-940, CSV."
 
@@ -43,8 +43,8 @@ defmodule Botyaga.Banking.Tx do
   def preview(company_id, params) do
     with {:ok, ba_id} <- req_id(params, "bank_account_id"),
          {:ok, content} <- required(params, "file_content"),
-         {:ok, _ba} <- bank(company_id, ba_id),
-         {:ok, parsed} <- detect(content) do
+         {:ok, ba} <- bank(company_id, ba_id),
+         {:ok, parsed} <- detect(content, ba.statement_format) do
       refs = refs_of(ba_id)
       {txs, dup} = mark_duplicates(parsed.txs, refs)
       {:ok, pack(parsed, txs, dup)}
@@ -55,7 +55,7 @@ defmodule Botyaga.Banking.Tx do
     with {:ok, ba_id} <- req_id(params, "bank_account_id"),
          {:ok, content} <- required(params, "file_content"),
          {:ok, ba} <- bank(company_id, ba_id),
-         {:ok, parsed} <- detect(content) do
+         {:ok, parsed} <- detect(content, ba.statement_format) do
       refs = refs_of(ba_id)
 
       result =
@@ -332,8 +332,8 @@ defmodule Botyaga.Banking.Tx do
 
   ## Вътрешни
 
-  defp detect(content) do
-    case Csv.detect(content) do
+  defp detect(content, hint) do
+    case Formats.detect(content, hint) do
       nil -> {:error, {422, @unknown}}
       parsed -> {:ok, parsed}
     end

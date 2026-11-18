@@ -2,8 +2,12 @@ defmodule BotyagaWeb.BankingController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Banking, Companies}
-  alias Botyaga.Banking.{Rules, Tx}
+  alias Botyaga.Banking.{Formats, Rules, Tx}
   alias BotyagaWeb.{Render, Respond}
+
+  def formats(conn, _params) do
+    Respond.ok(conn, %{items: Formats.list()})
+  end
 
   def index(conn, params) do
     with {:ok, company_id} <- active(conn) do

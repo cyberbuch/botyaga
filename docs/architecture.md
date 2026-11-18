@@ -71,7 +71,7 @@
 | `Opening` | `opening` | начални салда (страни по НСС) |
 | `Closing` | `closing` | приключвателни операции |
 | `Vat` | `vat`, `line`, `files`, `fmt`, `ex`, `manual` | ДДС дневници, файлове за НАП, ръчни клетки, основания |
-| `Banking` | `banking`, `account`, `transaction`, `tx`, `csv`, `xml`, `rule`, `rules` | банкови сметки, извлечения, правила, разнасяне |
+| `Banking` | `banking`, `account`, `transaction`, `tx`, `formats/*`, `format`, `formats`, `csv`, `xml`, `rule`, `rules` | банкови сметки, извлечения (формат per банка), правила, разнасяне |
 | `Assets` | `assets`, `asset`, `category`, `event`, `ops` | ДМА, амортизация, събития |
 | `Stock` | `stock`, `lot`, `rule`, `rules`, `replay`, `replay/load`, `journal`, `writeoff`, `material_issue(s)`, `internal_doc(s)` | наличност, партиди, правила, изписвания, протоколи |
 | `Production` | `orders`, `order`, `order_line`, `recipes`, `recipe`, `recipe_line` | рецепти и поръчки за производство |

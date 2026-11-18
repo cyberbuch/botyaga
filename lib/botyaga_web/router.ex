@@ -159,6 +159,7 @@ defmodule BotyagaWeb.Router do
     put "/vat/manual", VatController, :manual_save
     get "/vat-exemptions", VatController, :exemptions
 
+    get "/bank-formats", BankingController, :formats
     get "/bank-accounts", BankingController, :index
     post "/bank-accounts", BankingController, :create
     patch "/bank-accounts/:id", BankingController, :update

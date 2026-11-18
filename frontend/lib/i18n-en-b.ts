@@ -129,7 +129,6 @@ export const enB = {
   "automation.vat_purchase": "VAT purchase (4531)",
   "automation.vat_sale": "VAT sale (4532)",
   "automation.cash": "Cash (501)",
-  "automation.bank": "Bank (503)",
   "automation.card_purchase": "Card buffer — purchase",
   "automation.card_sale": "Card buffer — sale",
   "automation.revenues": "Revenues (702)",

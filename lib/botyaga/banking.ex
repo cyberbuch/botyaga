@@ -6,6 +6,9 @@ defmodule Botyaga.Banking do
   alias Botyaga.{Catalog, Companies, Dec, Params, Repo}
   alias Botyaga.Banking.Account
 
+  # "" = авто-разпознаване; ключовете са от Banking.Formats
+  @statement_formats ~w(camt053 mt940 csv postbank_xml unicredit_xml obb_xml)
+
   def list(company_id) do
     Repo.all(
       from(a in Account, where: a.company_id == ^company_id, order_by: [asc: a.name, asc: a.id])
@@ -24,6 +27,7 @@ defmodule Botyaga.Banking do
     with {:ok, name} <- required(params, "name"),
          {:ok, iban} <- required(params, "iban"),
          {:ok, balance} <- norm_balance(string(params, "balance", "0")),
+         {:ok, statement_format} <- statement_format(params, ""),
          {:ok, gl} <- ref(params, "gl_account_id", company_id),
          {:ok, buf} <- ref(params, "buffer_account_id", company_id),
          :ok <- unique_iban(company_id, iban, 0) do
@@ -37,7 +41,8 @@ defmodule Botyaga.Banking do
         account_number: string(params, "account_number"),
         gl_account_id: gl,
         buffer_account_id: buf,
-        balance: balance
+        balance: balance,
+        statement_format: statement_format
       }
 
       account = Repo.insert!(account)
@@ -55,7 +60,8 @@ defmodule Botyaga.Banking do
          {:ok, balance} <- balance(params, current.balance),
          {:ok, gl} <- pick_ref(params, "gl_account_id", current.gl_account_id, company_id),
          {:ok, buf} <-
-           pick_ref(params, "buffer_account_id", current.buffer_account_id, company_id) do
+           pick_ref(params, "buffer_account_id", current.buffer_account_id, company_id),
+         {:ok, statement_format} <- statement_format(params, current.statement_format) do
       account =
         Repo.update!(
           Ecto.Changeset.change(current,
@@ -67,7 +73,8 @@ defmodule Botyaga.Banking do
             account_number: pick_string(params, "account_number", current.account_number),
             balance: balance,
             gl_account_id: gl,
-            buffer_account_id: buf
+            buffer_account_id: buf,
+            statement_format: statement_format
           )
         )
 
@@ -107,6 +114,7 @@ defmodule Botyaga.Banking do
       gl_account_id: account.gl_account_id,
       buffer_account_id: account.buffer_account_id,
       balance: account.balance,
+      statement_format: account.statement_format,
       company_id: account.company_id
     }
 
@@ -188,6 +196,20 @@ defmodule Botyaga.Banking do
       nil -> {:ok, current}
       {:error, message} -> {:error, {422, message}}
       id -> ref(%{key => id}, key, company_id)
+    end
+  end
+
+  defp statement_format(params, current) do
+    case Params.str(params, "statement_format") do
+      {:present, value} ->
+        if value == "" or value in @statement_formats do
+          {:ok, value}
+        else
+          {:error, {422, "непознат формат на извлечението"}}
+        end
+
+      _ ->
+        {:ok, current}
     end
   end
 

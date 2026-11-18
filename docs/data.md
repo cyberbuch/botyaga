@@ -61,7 +61,7 @@ PostgreSQL през Ecto. Миграции в `priv/repo/migrations/` (10 фай
 
 | Таблица | Ключови полета | Бележка |
 |---------|----------------|---------|
-| `bank_accounts` | `company_id`, `iban`, `bic`, `bank_name`, `currency`, `account_number`, `gl_account_id`, `buffer_account_id`, `balance` | |
+| `bank_accounts` | `company_id`, `iban`, `bic`, `bank_name`, `currency`, `account_number`, `gl_account_id`, `buffer_account_id`, `balance`, `statement_format` | ГЛ/буфер от сметкоплана; формат на извлечението |
 | `bank_transactions` | `company_id`, `bank_account_id`, `txn_date`, `amount`, `currency`, `counterpart_name`, `counterpart_iban`, `description`, `reference`, `transaction_type`, `is_booked`, `is_allocated`, `journal_entry_id` | |
 | `bank_matching_rules` | `company_id`, `name`, `keywords`, `direction`, `priority`, `is_active`, `account_id`, `counterpart_id` | |
 | `fixed_asset_categories` | `company_id`, `name`, `cita_category`, `min/max_depreciation_rate`, `default_method`, `asset_account_id`, `depreciation_account_id`, `expense_account_id` | |

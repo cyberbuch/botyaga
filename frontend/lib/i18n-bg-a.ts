@@ -346,6 +346,8 @@ export const bgA = {
   "bank_accounts.balance": "Салдо",
   "bank_accounts.gl_account": "Счетоводна сметка",
   "bank_accounts.buffer_account": "Буферна сметка",
+  "bank_accounts.statement_format": "Формат на извлечението",
+  "bank_accounts.format_auto": "Автоматично",
   "bank_accounts.pick_account": "— изберете сметка —",
   "bank_accounts.name_placeholder": "Основна сметка",
   "bank_accounts.bank_name_placeholder": "УниКредит Булбанк",

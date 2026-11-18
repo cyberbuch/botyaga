@@ -140,6 +140,7 @@ defmodule BotyagaWeb.Plugs.Gate do
   defp segment_permission(_method, "closing-operations", _), do: {:key, "periods"}
   defp segment_permission(_method, "vat", _), do: {:key, "vat"}
   defp segment_permission(_method, "bank-accounts", _), do: {:key, "banking"}
+  defp segment_permission(_method, "bank-formats", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-transactions", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-matching-rules", _), do: {:key, "banking"}
   defp segment_permission(_method, "fixed-assets", _), do: {:key, "assets"}

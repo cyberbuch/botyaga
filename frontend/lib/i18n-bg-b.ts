@@ -137,7 +137,6 @@ export const bgB = {
   "automation.vat_purchase": "ДДС покупка (4531)",
   "automation.vat_sale": "ДДС продажба (4532)",
   "automation.cash": "Каса (501)",
-  "automation.bank": "Банка (503)",
   "automation.card_purchase": "Буфер карта — покупка",
   "automation.card_sale": "Буфер карта — продажба",
   "automation.revenues": "Приходи (702)",

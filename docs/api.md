@@ -125,7 +125,7 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 | GET | `/v1/invoices/:id` | преглед |
 | PATCH / DELETE | `/v1/invoices/:id` | редакция / изтриване |
 | POST | `/v1/invoices/:id/post` | осчетоводяване |
-| POST | `/v1/invoices/:id/pay` | автоматично плащане (в брой/карта/банка) от default сметките |
+| POST | `/v1/invoices/:id/pay` | автоматично плащане (в брой/карта от default; банка от избраната сметка) |
 | POST | `/v1/invoices/:id/unpay` | отмяна на плащането |
 | GET | `/v1/invoices/:id/print` | печат (PDF/DOCX/ODT) |
 | GET | `/v1/invoices/:id/ubl` | UBL 2.1 експорт |
@@ -165,6 +165,7 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 
 | Метод | Път | Описание |
 |-------|-----|----------|
+| GET | `/v1/bank-formats` | регистрирани формати на извлечения (key/name) |
 | GET / POST | `/v1/bank-accounts` | банкови сметки |
 | PATCH / DELETE | `/v1/bank-accounts/:id` | редакция / изтриване |
 | GET | `/v1/bank-transactions` | транзакции |

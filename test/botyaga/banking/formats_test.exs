@@ -1,7 +1,7 @@
-defmodule Botyaga.Banking.CsvTest do
+defmodule Botyaga.Banking.FormatsTest do
   use ExUnit.Case, async: true
 
-  alias Botyaga.Banking.Csv
+  alias Botyaga.Banking.Formats
 
   test "PostBank и UniCredit XML" do
     pb = """
@@ -22,7 +22,7 @@ defmodule Botyaga.Banking.CsvTest do
     </AccountTransactionsHistory>
     """
 
-    p = Csv.detect(pb)
+    p = Formats.detect(pb)
     assert p.format_name == "PostBank XML"
     assert p.account_iban == "BG93BPBI79401071567501"
     assert length(p.txs) == 1
@@ -42,7 +42,7 @@ defmodule Botyaga.Banking.CsvTest do
     </AccountMovement></Items>
     """
 
-    u = Csv.detect(uc)
+    u = Formats.detect(uc)
     assert u.format_name == "UniCredit XML"
     assert u.account_iban == "BG43UNCR70001525183064"
     assert length(u.txs) == 1
@@ -59,7 +59,7 @@ defmodule Botyaga.Banking.CsvTest do
       <REM_I>Фактура 5</REM_I><REFERENCE>OBB-1</REFERENCE></TRANSACTION></STATEMENT>
     """
 
-    o = Csv.detect(obb)
+    o = Formats.detect(obb)
     assert o.format_name == "OBB XML"
     assert o.account_iban == "BG11UBBS88881010101010"
     assert length(o.txs) == 1
@@ -77,7 +77,7 @@ defmodule Botyaga.Banking.CsvTest do
     </Stmt></BkToCstmrStmt></Document>
     """
 
-    c = Csv.detect(camt)
+    c = Formats.detect(camt)
     assert c.format_name == "ISO camt.053"
     assert c.account_iban == "BG99BNBG96611020345678"
     assert length(c.txs) == 1
@@ -95,7 +95,7 @@ defmodule Botyaga.Banking.CsvTest do
     2026-01-16;Постъпление;;300.00;REF-2
     """
 
-    p = Csv.detect(csv)
+    p = Formats.detect(csv)
     assert p.format_name == "CSV"
     assert p.account_iban == "BG93BPBI79401071567501"
     assert length(p.txs) == 2
@@ -114,7 +114,7 @@ defmodule Botyaga.Banking.CsvTest do
     :62F:C260131EUR1179,50
     """
 
-    p = Csv.detect(mt)
+    p = Formats.detect(mt)
     assert p.format_name == "MT940"
     assert p.account_iban == "BG93BPBI79401071567501"
     assert length(p.txs) == 2
@@ -124,6 +124,51 @@ defmodule Botyaga.Banking.CsvTest do
   end
 
   test "непознат формат" do
-    assert Csv.detect("някакъв текст без формат") == nil
+    assert Formats.detect("някакъв текст без формат") == nil
+  end
+
+  test "явен формат (hint): MT940 и camt.053" do
+    mt = """
+    :20:START
+    :25:BG93BPBI79401071567501
+    :60F:C260101EUR1000,00
+    :61:2601150115D120,50NTRFREF-1
+    :86:Плащане към доставчик
+    :61:2601160116C300,00NTRFREF-2
+    :62F:C260131EUR1179,50
+    """
+
+    p = Formats.detect(mt, "mt940")
+    assert p.format_name == "MT940"
+    assert p.account_iban == "BG93BPBI79401071567501"
+    assert length(p.txs) == 2
+    assert Enum.at(p.txs, 0).amount == "-120.50"
+    assert Enum.at(p.txs, 1).amount == "300.00"
+
+    camt = """
+    <Document><BkToCstmrStmt><Stmt>
+      <Acct><Id><IBAN>BG99BNBG96611020345678</IBAN></Id><Ccy>EUR</Ccy></Acct>
+      <Ntry><Amt Ccy="EUR">350.00</Amt><CdtDbtInd>CRDT</CdtDbtInd>
+      <BookgDt><Dt>2026-02-10</Dt></BookgDt><AcctSvcrRef>CAMT-9</AcctSvcrRef>
+      <NtryDtls><TxDtls><RltdPties><Dbtr><Nm>КЛИЕНТ АД</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>BG00TEST1234</IBAN></Id></DbtrAcct></RltdPties>
+      <RmtInf><Ustrd>Плащане по ф-ра 99</Ustrd></RmtInf></TxDtls></NtryDtls></Ntry>
+    </Stmt></BkToCstmrStmt></Document>
+    """
+
+    c = Formats.detect(camt, "camt053")
+    assert c.format_name == "ISO camt.053"
+    assert c.account_iban == "BG99BNBG96611020345678"
+    assert length(c.txs) == 1
+    assert hd(c.txs).amount == "350.00"
+    assert hd(c.txs).reference == "CAMT-9"
+  end
+
+  test "регистър: keys, list и fetch" do
+    assert Formats.keys() == ~w(postbank_xml unicredit_xml obb_xml camt053 mt940 csv)
+    assert Enum.map(Formats.list(), & &1.key) == Formats.keys()
+    assert Enum.all?(Formats.list(), &(&1.name != ""))
+    assert {:ok, Botyaga.Banking.Formats.Mt940} = Formats.fetch("mt940")
+    assert Formats.fetch("pdf") == :error
   end
 end

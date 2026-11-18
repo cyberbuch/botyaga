@@ -23,6 +23,7 @@ interface BankAccount {
   gl_account_id: number;
   buffer_account_id: number;
   balance: string;
+  statement_format?: string;
   gl_account_code?: string;
   buffer_account_code?: string;
 }
@@ -30,6 +31,11 @@ interface BankAccount {
 interface Account {
   id: number;
   number: string;
+  name: string;
+}
+
+interface FormatItem {
+  key: string;
   name: string;
 }
 
@@ -43,12 +49,14 @@ const emptyForm = {
   balance: "0.00",
   gl_account_id: 0,
   buffer_account_id: 0,
+  statement_format: "",
 };
 
 function BankAccountsInner() {
   const { t } = useI18n();
   const [rows, setRows] = useState<BankAccount[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [formats, setFormats] = useState<FormatItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -87,12 +95,14 @@ function BankAccountsInner() {
     setLoading(true);
     setError("");
     try {
-      const [b, a] = await Promise.all([
+      const [b, a, f] = await Promise.all([
         fetchAll<BankAccount>("/v1/bank-accounts"),
         fetchAll<Account>("/v1/accounts"),
+        api.get<{ items: FormatItem[] }>("/v1/bank-formats"),
       ]);
       setRows(b);
       setAccounts(a);
+      setFormats(f.items ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -122,6 +132,7 @@ function BankAccountsInner() {
       balance: acc.balance || "0.00",
       gl_account_id: acc.gl_account_id || 0,
       buffer_account_id: acc.buffer_account_id || 0,
+      statement_format: acc.statement_format ?? "",
     });
     setEditing(acc);
     setFormError("");
@@ -143,6 +154,7 @@ function BankAccountsInner() {
         balance: form.balance,
         gl_account_id: form.gl_account_id,
         buffer_account_id: form.buffer_account_id,
+        statement_format: form.statement_format,
       };
       if (editing) {
         await api.patch(`/v1/bank-accounts/${editing.id}`, payload);
@@ -239,6 +251,7 @@ function BankAccountsInner() {
                 <th>{t("bank_accounts.iban")}</th>
                 <th>{t("bank_accounts.gl_account")}</th>
                 <th>{t("bank_accounts.buffer_account")}</th>
+                <th>{t("bank_accounts.statement_format")}</th>
                 <th style={{ textAlign: "right" }}>
                   {t("bank_accounts.balance")}
                 </th>
@@ -258,6 +271,10 @@ function BankAccountsInner() {
                   </td>
                   <td style={{ fontFamily: "ui-monospace, monospace" }}>
                     {accountCode(b.buffer_account_id)}
+                  </td>
+                  <td>
+                    {formats.find((f) => f.key === b.statement_format)?.name ||
+                      t("bank_accounts.format_auto")}
                   </td>
                   <td style={{ textAlign: "right", fontWeight: 500 }}>
                     {b.balance} {b.currency}
@@ -386,6 +403,25 @@ function BankAccountsInner() {
                   {accountOptions(form.buffer_account_id, (v) =>
                     setForm({ ...form, buffer_account_id: v })
                   )}
+                </div>
+                <div className="field">
+                  <label className="label">
+                    {t("bank_accounts.statement_format")}
+                  </label>
+                  <select
+                    className="select"
+                    value={form.statement_format}
+                    onChange={(e) =>
+                      setForm({ ...form, statement_format: e.target.value })
+                    }
+                  >
+                    <option value="">{t("bank_accounts.format_auto")}</option>
+                    {formats.map((f) => (
+                      <option key={f.key} value={f.key}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               {formError && <div className="error-text">{formError}</div>}

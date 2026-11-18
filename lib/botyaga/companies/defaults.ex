@@ -7,7 +7,7 @@ defmodule Botyaga.Companies.Defaults do
 
   alias Botyaga.{Catalog, Repo}
 
-  @roles ~w(customers suppliers vat_purchase vat_sale cash bank
+  @roles ~w(customers suppliers vat_purchase vat_sale cash
             card_purchase card_sale revenues expenses)
 
   @fallback %{
@@ -16,7 +16,6 @@ defmodule Botyaga.Companies.Defaults do
     "vat_purchase" => "4531",
     "vat_sale" => "4532",
     "cash" => "501",
-    "bank" => "503",
     "revenues" => "702",
     "expenses" => "602"
   }

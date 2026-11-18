@@ -70,6 +70,48 @@ defmodule BotyagaWeb.BanksAssetsTest do
       conn = delete(conn, "/v1/bank-accounts/#{account["id"]}")
       assert response(conn, 204)
     end
+
+    test "statement_format: стойност по подразбиране, валиден и невалиден", %{conn: conn} do
+      auto =
+        json_response(
+          post(conn, "/v1/bank-accounts", %{
+            "name" => "Авто формат",
+            "iban" => "BG22222222222222222222"
+          }),
+          201
+        )
+
+      assert auto["statement_format"] == ""
+
+      conn =
+        post(conn, "/v1/bank-accounts", %{
+          "name" => "camt сметка",
+          "iban" => "BG33333333333333333333",
+          "statement_format" => "camt053"
+        })
+
+      body = json_response(conn, 201)
+      assert body["statement_format"] == "camt053"
+
+      conn =
+        post(conn, "/v1/bank-accounts", %{
+          "name" => "Грешен формат",
+          "iban" => "BG44444444444444444444",
+          "statement_format" => "pdf"
+        })
+
+      assert json_response(conn, 422)["detail"] == "непознат формат на извлечението"
+
+      # редакция без полето запазва текущия формат
+      conn = patch(conn, "/v1/bank-accounts/#{body["id"]}", %{"bank_name" => "Пощенска"})
+      assert json_response(conn, 200)["statement_format"] == "camt053"
+
+      conn = patch(conn, "/v1/bank-accounts/#{body["id"]}", %{"statement_format" => "mt940"})
+      assert json_response(conn, 200)["statement_format"] == "mt940"
+
+      conn = patch(conn, "/v1/bank-accounts/#{body["id"]}", %{"statement_format" => "xlsx"})
+      assert json_response(conn, 422)["detail"] == "непознат формат на извлечението"
+    end
   end
 
   describe "ДМА" do

@@ -109,8 +109,11 @@ defmodule Botyaga.Invoicing.Payment do
 
   defp payment_account(company, inv, :bank) do
     case bank_gl(company, inv.bank_account_id) do
-      {:ok, acct} -> {:ok, acct}
-      :error -> Defaults.resolve(company, "bank")
+      {:ok, acct} ->
+        {:ok, acct}
+
+      :error ->
+        {:error, {422, "изберете банкова сметка за фактурата (плащане с банка)"}}
     end
   end
 

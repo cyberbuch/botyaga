@@ -203,10 +203,24 @@ defmodule BotyagaWeb.AutomationTest do
     test "банков превод: Дт банка / Кт клиенти", %{
       conn: conn,
       cp_id: cp_id,
-      service_id: service_id
+      service_id: service_id,
+      by_number: by_number
     } do
+      ba =
+        json_response(
+          post(conn, "/v1/bank-accounts", %{
+            "iban" => "BG80BNPA94405030",
+            "name" => "Основна банка",
+            "gl_account_id" => by_number["503"]
+          }),
+          201
+        )
+
       inv =
-        make_invoice(conn, cp_id, sale_line(service_id), %{"payment_method" => "банков превод"})
+        make_invoice(conn, cp_id, sale_line(service_id), %{
+          "payment_method" => "банков превод",
+          "bank_account_id" => ba["id"]
+        })
 
       post(conn, "/v1/invoices/#{inv["id"]}/post", %{})
       pay = json_response(post(conn, "/v1/invoices/#{inv["id"]}/pay", %{}), 201)
@@ -214,6 +228,20 @@ defmodule BotyagaWeb.AutomationTest do
       lines = journal_lines(conn, pay["id"])
       assert lines["503"]["direction"] == "debit"
       assert lines["411"]["direction"] == "credit"
+    end
+
+    test "банков превод без избрана банкова сметка се отказва", %{
+      conn: conn,
+      cp_id: cp_id,
+      service_id: service_id
+    } do
+      inv =
+        make_invoice(conn, cp_id, sale_line(service_id), %{"payment_method" => "банков превод"})
+
+      post(conn, "/v1/invoices/#{inv["id"]}/post", %{})
+
+      assert json_response(post(conn, "/v1/invoices/#{inv["id"]}/pay", %{}), 422)["detail"] =~
+               "изберете банкова сметка"
     end
 
     test "банков превод ползва ГЛ сметката на избраната банкова сметка", %{
