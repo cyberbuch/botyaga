@@ -45,8 +45,6 @@ const config: CrudConfig = {
     { name: "accountant_egn", labelKey: "companies.accountant_egn", type: "text" },
     { name: "tax_authority", labelKey: "companies.tax_authority", type: "text" },
     { name: "nap_office", labelKey: "companies.nap_office", type: "text" },
-    { name: "iban", labelKey: "companies.iban", type: "text" },
-    { name: "bic", labelKey: "companies.bic", type: "text" },
     {
       name: "inventory_valuation_method",
       labelKey: "companies.inventory_valuation_method",

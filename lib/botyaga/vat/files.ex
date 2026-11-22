@@ -71,31 +71,64 @@ defmodule Botyaga.Vat.Files do
     end
   end
 
-  def submitter(accountant_egn, accountant_name, auth_egn, auth_name, manager_egn, manager_name) do
-    cond do
-      String.trim(accountant_name || "") != "" or String.trim(accountant_egn || "") != "" ->
-        person(accountant_egn, accountant_name)
+  # Лицето, подаващо данните в НАП, се избира в настройките на фирмата. Ако
+  # за него няма данни, се влиза на първото налично: счетоводител, пълномощник,
+  # управител.
+  def submitter(
+        selector,
+        accountant_egn,
+        accountant_name,
+        auth_egn,
+        auth_name,
+        manager_egn,
+        manager_name
+      ) do
+    {_, egn, name} =
+      pick(selector, [
+        {:accountant, accountant_egn, accountant_name},
+        {:authorized, auth_egn, auth_name},
+        {:manager, manager_egn, manager_name}
+      ])
 
-      String.trim(auth_name || "") != "" or String.trim(auth_egn || "") != "" ->
-        person(auth_egn, auth_name)
+    person(egn, name)
+  end
 
-      true ->
-        person(manager_egn, manager_name)
+  # Качеството е `A` за упълномощено лице (счетоводителят е пълномощник за ДДС)
+  # и `R` за законен представител — управител.
+  def declarant(
+        selector,
+        accountant_egn,
+        accountant_name,
+        auth_egn,
+        auth_name,
+        manager_egn,
+        manager_name
+      ) do
+    {role, egn, name} =
+      pick(selector, [
+        {:accountant, accountant_egn, accountant_name},
+        {:authorized, auth_egn, auth_name},
+        {:manager, manager_egn, manager_name}
+      ])
+
+    {String.trim(egn || ""), String.trim(name || ""), if(role == :manager, do: "R", else: "A")}
+  end
+
+  defp pick(selector, people) do
+    wanted = String.trim(to_string(selector || ""))
+
+    chosen =
+      Enum.find(people, fn {role, egn, name} ->
+        Atom.to_string(role) == wanted and present?(egn, name)
+      end)
+
+    case chosen do
+      nil -> Enum.find(people, fn {_, egn, name} -> present?(egn, name) end) || {:manager, "", ""}
+      found -> found
     end
   end
 
-  def declarant(accountant_egn, accountant_name, auth_egn, auth_name, manager_egn, manager_name) do
-    cond do
-      String.trim(accountant_egn || "") != "" or String.trim(accountant_name || "") != "" ->
-        {String.trim(accountant_egn || ""), String.trim(accountant_name || ""), "A"}
-
-      String.trim(auth_egn || "") != "" or String.trim(auth_name || "") != "" ->
-        {String.trim(auth_egn || ""), String.trim(auth_name || ""), "A"}
-
-      true ->
-        {String.trim(manager_egn || ""), String.trim(manager_name || ""), "R"}
-    end
-  end
+  defp present?(egn, name), do: String.trim(egn || "") != "" or String.trim(name || "") != ""
 
   def deklar(vat, name, period, submitter, c) do
     coef = if String.trim(c.m33) == "", do: "0.00", else: c.m33

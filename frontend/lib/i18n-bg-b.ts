@@ -218,6 +218,7 @@ export const bgB = {
   "vat.result": "Резултат за периода",
   "vat.goods": "Вид стока/услуга",
   "vat.row": "№",
+  "vat.col_branch": "Клон",
   "vat.total": "Общо",
   "vat.download_zip": "ZIP за НАП",
   "vat.download_deklar": "DEKLAR.TXT",

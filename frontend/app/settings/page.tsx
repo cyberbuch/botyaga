@@ -116,8 +116,7 @@ function SettingsInner() {
       authorized_person_egn: str(c.authorized_person_egn),
       tax_authority: str(c.tax_authority),
       nap_office: str(c.nap_office),
-      iban: str(c.iban),
-      bic: str(c.bic),
+      vat_submitter: str(c.vat_submitter, "accountant"),
       is_vat_registered:
         Number(c.is_vat_registered) && str(c.vat_number).trim().length > 0 ? "1" : "0",
       vat_period: str(c.vat_period, "monthly"),
@@ -219,8 +218,7 @@ function SettingsInner() {
         authorized_person_egn: companyForm.authorized_person_egn,
         tax_authority: companyForm.tax_authority,
         nap_office: companyForm.nap_office,
-        iban: companyForm.iban,
-        bic: companyForm.bic,
+        vat_submitter: companyForm.vat_submitter,
         is_vat_registered:
           companyForm.is_vat_registered === "1" &&
           (companyForm.vat_number ?? "").trim().length > 0,

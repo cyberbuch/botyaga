@@ -31,8 +31,8 @@ defmodule Botyaga.Ubl do
       if customer.name == "", do: %{customer | name: inv.counterpart_name || ""}, else: customer
 
     currency = or_trim(inv.currency, "EUR")
-    pay_iban = or_trim(Load.field(doc.bank, :iban), company.iban)
-    pay_bic = or_trim(Load.field(doc.bank, :bic), company.bic)
+    pay_iban = or_trim(Load.field(doc.bank, :iban), "")
+    pay_bic = or_trim(Load.field(doc.bank, :bic), "")
     root = if credit, do: "CreditNote", else: "Invoice"
 
     ns =

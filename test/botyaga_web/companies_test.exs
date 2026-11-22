@@ -175,6 +175,21 @@ defmodule BotyagaWeb.CompaniesTest do
       assert json_response(conn, 200)["next_number"] == "0000000002"
     end
 
+    test "клонът е число 0..9999; текст се отказва" do
+      super = superadmin()
+      {:ok, company, _seeded} = Companies.create(%{"name" => "Тест", "eik" => "207123456"}, super)
+      conn = build_conn() |> auth_conn(super)
+
+      conn = patch(conn, "/v1/companies/#{company.id}", %{"vat_branch_number" => "12"})
+      assert json_response(conn, 200)["vat_branch_number"] == "12"
+
+      conn = build_conn() |> auth_conn(super)
+      conn = patch(conn, "/v1/companies/#{company.id}", %{"vat_branch_number" => "СЕРДИКА"})
+
+      assert json_response(conn, 422)["detail"] ==
+               "vat_branch_number трябва да е число от 0 до 9999"
+    end
+
     test "settings връща фирмата и списъците" do
       super = superadmin()
       {:ok, company, _seeded} = Companies.create(%{"name" => "Тест", "eik" => "207123456"}, super)

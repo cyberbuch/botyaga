@@ -76,8 +76,8 @@ defmodule Botyaga.Printing.Invoice do
     method = String.trim(inv.payment_method || "")
     bank_payment = method == "банков превод" or inv.bank_account_id > 0
     bank_name = or_trim(doc.bank[:name], "")
-    bank_iban = or_trim(doc.bank[:iban], company.iban)
-    bank_bic = or_trim(doc.bank[:bic], company.bic)
+    bank_iban = String.trim(doc.bank[:iban] || "")
+    bank_bic = String.trim(doc.bank[:bic] || "")
 
     out =
       if bank_payment do

@@ -92,27 +92,17 @@ defmodule Botyaga.Vat do
 
     {cells, purchases, sales, pok, pro, vies_map} =
       Enum.reduce(entries, {VatLine.cells(), [], [], <<>>, <<>>, %{}}, fn entry, acc ->
-        {cells, purchases, sales, pok, pro, vies_map} = acc
+        case entry.vat_type do
+          "both" ->
+            acc
+            |> register(company_id, co, period, entry, "purchase")
+            |> register(company_id, co, period, entry, "sales")
 
-        if entry.vat_type not in ["purchase", "sales"] do
-          acc
-        else
-          ln = one_line(company_id, entry, entry.vat_type)
+          vt when vt in ["purchase", "sales"] ->
+            register(acc, company_id, co, period, entry, vt)
 
-          if entry.vat_type == "purchase" do
-            n = cells.purch_n + 1
-            cells = VatLine.cells_add(cells, ln)
-
-            {cells, purchases ++ [VatLine.to_json(ln, entry.id, n)], sales,
-             pok <> Files.pok_line(co.vat, period.nap, co.branch, n, ln), pro, vies_map}
-          else
-            n = cells.sales_n + 1
-            vies_map = accumulate_vies(vies_map, ln)
-            cells = VatLine.cells_add(cells, ln)
-
-            {cells, purchases, sales ++ [VatLine.to_json(ln, entry.id, n)], pok,
-             pro <> Files.pro_line(co.vat, period.nap, co.branch, n, ln), vies_map}
-          end
+          _ ->
+            acc
         end
       end)
 
@@ -174,6 +164,36 @@ defmodule Botyaga.Vat do
     {:ok, %{body: body, pok: pok, pro: pro, dek: dek, vies: vies, period_nap: period.nap}}
   end
 
+  # Протоколът по чл. 117 е с `vat_type` "both" — същият запис влиза и в
+  # дневника на покупките, и в този на продажбите.
+  defp register(acc, company_id, co, period, entry, kind) do
+    {cells, purchases, sales, pok, pro, vies_map} = acc
+    ln = one_line(company_id, entry, kind)
+    branch = branch_of(co.branch)
+
+    if kind == "purchase" do
+      n = cells.purch_n + 1
+      cells = VatLine.cells_add(cells, ln)
+      row = ln |> VatLine.to_json(entry.id, n) |> Map.put(:branch, branch)
+
+      {cells, purchases ++ [row], sales,
+       pok <> Files.pok_line(co.vat, period.nap, co.branch, n, ln), pro, vies_map}
+    else
+      n = cells.sales_n + 1
+      vies_map = accumulate_vies(vies_map, ln)
+      cells = VatLine.cells_add(cells, ln)
+      row = ln |> VatLine.to_json(entry.id, n) |> Map.put(:branch, branch)
+
+      {cells, purchases, sales ++ [row], pok,
+       pro <> Files.pro_line(co.vat, period.nap, co.branch, n, ln), vies_map}
+    end
+  end
+
+  defp branch_of(raw) do
+    t = String.trim(raw || "")
+    if t == "", do: "0", else: t
+  end
+
   defp accumulate_vies(vies_map, ln) do
     case vies_vin(ln.cp_vat) do
       nil ->
@@ -203,6 +223,7 @@ defmodule Botyaga.Vat do
 
     {decl_egn, decl_name, quality} =
       Files.declarant(
+        company.vat_submitter,
         company.accountant_egn,
         company.accountant_name,
         company.authorized_person_egn,
@@ -216,6 +237,7 @@ defmodule Botyaga.Vat do
       vat: Fmt.with_bg(company.vat_number),
       submitter:
         Files.submitter(
+          company.vat_submitter,
           company.accountant_egn,
           company.accountant_name,
           company.authorized_person_egn,
@@ -302,9 +324,6 @@ defmodule Botyaga.Vat do
         vat_art = inv.vat_article || ""
 
         cond do
-          inv.document_type == "09" and String.trim(vat_art) != "" ->
-            Map.put(ln, :goods, "Протокол по #{String.trim(vat_art)} от ЗДДС")
-
           inv.document_type == "07" and (c_stat > 0 or c_duty > 0 or c_vat > 0) ->
             base = if c_stat + c_duty > 0, do: c_stat + c_duty, else: inv_net
             vat = if c_vat > 0, do: c_vat, else: inv_vat
@@ -319,6 +338,13 @@ defmodule Botyaga.Vat do
             VatLine.add_purch(ln, base, vat)
 
           true ->
+            ln =
+              if inv.document_type == "09" and String.trim(vat_art) != "" do
+                Map.put(ln, :goods, "Протокол по #{String.trim(vat_art)} от ЗДДС")
+              else
+                ln
+              end
+
             overlay_lines(ln, inv, inv_net, inv_vat)
         end
     end

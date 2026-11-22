@@ -146,7 +146,7 @@ defmodule Botyaga.Saft do
       Xml.text("SoftwareCompanyName", filled(c.soft_name, "botyaga", 70)) <>
       Xml.text("SoftwareID", filled(c.soft_id, "BOTYAGA", 256)) <>
       Xml.text("SoftwareVersion", filled(c.soft_ver, "1.0", 18)) <>
-      company_xml(c) <>
+      company_xml(c, s.bank_accounts) <>
       Ownership.ownership(s) <>
       Xml.text("DefaultCurrencyCode", currency_code(c.currency)) <>
       Xml.open("SelectionCriteria") <>
@@ -163,14 +163,25 @@ defmodule Botyaga.Saft do
       Xml.close("Header")
   end
 
-  defp company_xml(c) do
+  defp company_xml(c, bank_accounts) do
     eik = eik_or0(c.eik)
     {first, last} = person(c.mol)
     phone = Xml.clip(c.phone, 18)
     email = Xml.clip(c.email, 70)
     site = String.trim(c.website || "")
     vat = Xml.clip(c.vat, 35)
-    iban = or_clip(c.iban, 35, "0")
+
+    bank_accounts_xml =
+      bank_accounts
+      |> Enum.map(fn a ->
+        number =
+          if a.iban != "",
+            do: Xml.text("IBANNumber", Xml.clip(a.iban, 35)),
+            else: Xml.text("AccountNumber", Xml.clip(a.account_number, 35))
+
+        Xml.open("BankAccount") <> number <> Xml.close("BankAccount")
+      end)
+      |> Enum.join("")
 
     website =
       if String.starts_with?(site, "http://") or String.starts_with?(site, "https://"),
@@ -206,9 +217,7 @@ defmodule Botyaga.Saft do
       Xml.text("TaxType", "100010") <>
       if(vat == "", do: "", else: Xml.text("TaxNumber", vat)) <>
       Xml.close("TaxRegistration") <>
-      Xml.open("BankAccount") <>
-      Xml.text("IBANNumber", iban) <>
-      Xml.close("BankAccount") <>
+      bank_accounts_xml <>
       Xml.close("Company")
   end
 

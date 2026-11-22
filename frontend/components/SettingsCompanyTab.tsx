@@ -58,12 +58,6 @@ export function SettingsCompanyTab({
             <SettingsField label={t("companies.mol")}>
               <input className="input" value={companyForm.mol ?? ""} onChange={(e) => setC("mol", e.target.value)} />
             </SettingsField>
-            <SettingsField label={t("companies.iban")}>
-              <input className="input" value={companyForm.iban ?? ""} onChange={(e) => setC("iban", e.target.value)} />
-            </SettingsField>
-            <SettingsField label={t("companies.bic")}>
-              <input className="input" value={companyForm.bic ?? ""} onChange={(e) => setC("bic", e.target.value)} />
-            </SettingsField>
             <SettingsField label={t("companies.tax_authority")}>
               <input className="input" value={companyForm.tax_authority ?? ""} onChange={(e) => setC("tax_authority", e.target.value)} />
             </SettingsField>
@@ -117,6 +111,27 @@ export function SettingsCompanyTab({
               </SettingsField>
             </div>
           </div>
+          <div className="inline-form">
+            <h4 className="section-title" style={{ fontSize: 13 }}>
+              {t("settings.vat_submitter")}
+            </h4>
+            <div className="form-grid">
+              <div className="field" style={{ gridColumn: "span 2" }}>
+                <select
+                  className="select"
+                  value={companyForm.vat_submitter ?? "accountant"}
+                  onChange={(e) => setC("vat_submitter", e.target.value)}
+                >
+                  <option value="manager">{t("settings.vat_submitter.manager")}</option>
+                  <option value="accountant">{t("settings.vat_submitter.accountant")}</option>
+                  <option value="authorized">{t("settings.vat_submitter.authorized")}</option>
+                </select>
+                <p className="muted" style={{ fontSize: 12, margin: "4px 0 0" }}>
+                  {t("settings.vat_submitter.hint")}
+                </p>
+              </div>
+            </div>
+          </div>
 
           <h3 className="section-title" style={{ marginTop: 22 }}>
             {t("settings.section.vat")}
@@ -151,7 +166,13 @@ export function SettingsCompanyTab({
               </select>
             </SettingsField>
             <SettingsField label={t("settings.vat_branch")}>
-              <input className="input" value={companyForm.vat_branch_number ?? ""} onChange={(e) => setC("vat_branch_number", e.target.value)} />
+              <input
+                className="input"
+                inputMode="numeric"
+                maxLength={4}
+                value={companyForm.vat_branch_number ?? ""}
+                onChange={(e) => setC("vat_branch_number", e.target.value.replace(/\D/g, "").slice(0, 4))}
+              />
             </SettingsField>
             <SettingsField label={t("companies.fiscal_year_start_month")}>
               <input className="input" type="number" min={1} max={12} value={companyForm.fiscal_year_start_month ?? "1"} onChange={(e) => setC("fiscal_year_start_month", e.target.value)} />

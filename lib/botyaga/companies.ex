@@ -15,7 +15,7 @@ defmodule Botyaga.Companies do
 
   @string_fields ~w(name eik vat_number vat_period currency address city post_code phone email
                      website mol manager_eik accountant_name accountant_egn tax_authority nap_office
-                     iban bic inventory_valuation_method country manager_name manager_egn
+                     vat_submitter inventory_valuation_method country manager_name manager_egn
                      authorized_person_name authorized_person_egn vat_branch_number tax_accounting_basis
                      tax_entity software_company_name software_id software_version is_part_of_group
                      street_name building_number address_building additional_address_detail address_type
@@ -315,7 +315,8 @@ defmodule Botyaga.Companies do
          {:ok, is_vat_registered} <-
            optional_flag(params, "is_vat_registered", company.is_vat_registered),
          {:ok, fiscal_month} <-
-           optional_int(params, "fiscal_year_start_month", company.fiscal_year_start_month) do
+           optional_int(params, "fiscal_year_start_month", company.fiscal_year_start_month),
+         :ok <- check_branch(changes) do
       changes =
         changes
         |> Map.put(:is_vat_registered, is_vat_registered)
@@ -323,6 +324,23 @@ defmodule Botyaga.Companies do
         |> apply_defaults(company)
 
       {:ok, Ecto.Changeset.change(company, changes)}
+    end
+  end
+
+  # Клон/обособено звено в POKUPKI/PRODAGBI е цифрово поле (4), 0..9999.
+  defp check_branch(changes) do
+    case Map.get(changes, :vat_branch_number) do
+      nil ->
+        :ok
+
+      raw ->
+        t = String.trim(raw)
+
+        if t == "" or String.match?(t, ~r/^[0-9]{1,4}$/) do
+          :ok
+        else
+          {:error, {422, "vat_branch_number трябва да е число от 0 до 9999"}}
+        end
     end
   end
 
@@ -361,6 +379,11 @@ defmodule Botyaga.Companies do
             :inventory_valuation_method,
             company.inventory_valuation_method || "WAC"
           ),
+        else: changes
+
+    changes =
+      if blank?(Map.get(changes, :vat_submitter)),
+        do: Map.put(changes, :vat_submitter, company.vat_submitter || "accountant"),
         else: changes
 
     changes =

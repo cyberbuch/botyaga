@@ -78,9 +78,7 @@ defmodule Botyaga.Printing.Load do
       email: field(v, :email),
       phone: field(v, :phone),
       mol: field(v, :mol),
-      contact: field(v, :contact_person),
-      iban: field(v, :iban),
-      bic: field(v, :bic)
+      contact: field(v, :contact_person)
     }
   end
 

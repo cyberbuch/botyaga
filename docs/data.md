@@ -25,7 +25,7 @@ PostgreSQL през Ecto. Миграции в `priv/repo/migrations/` (10 фай
 
 | Таблица | Ключови полета | Бележка |
 |---------|----------------|---------|
-| `companies` | `name`, `eik`, `vat_number`, `is_vat_registered`, `vat_period`, `currency`, адресни полета, `mol`, `manager_*`, `accountant_*`, `tax_authority`, `nap_office`, `iban`, `bic`, `inventory_valuation_method`, `fiscal_year_start_month`, `software_*`, `settings` (JSON) | `inventory_valuation_method` по подразбиране `WAC` |
+| `companies` | `name`, `eik`, `vat_number`, `is_vat_registered`, `vat_period`, `currency`, адресни полета, `mol`, `manager_*`, `accountant_*`, `tax_authority`, `nap_office`, `vat_submitter`, `inventory_valuation_method`, `fiscal_year_start_month`, `software_*`, `settings` (JSON) | `inventory_valuation_method` по подразбиране `WAC` |
 | `company_locations` | `company_id`, `name`, `location_type`, адрес, `is_main` | обекти |
 | `beneficial_owners` | `company_id`, имена (BG/латиница), `egn`, `ownership_percentage` | действителни собственици |
 | `ultimate_parents` | `company_id`, `name_bg`, `uic`, `name_latin`, `country` | крайни майки |

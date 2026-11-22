@@ -20,8 +20,7 @@ defmodule Botyaga.Companies.Company do
     field :accountant_egn, :string
     field :tax_authority, :string
     field :nap_office, :string
-    field :iban, :string
-    field :bic, :string
+    field :vat_submitter, :string, default: "accountant"
     field :inventory_valuation_method, :string, default: "WAC"
     field :fiscal_year_start_month, :integer, default: 1
     field :country, :string, default: "BG"

@@ -17,6 +17,7 @@ type Tab = "summary" | "purchases" | "sales" | "declaration" | "vies";
 interface VatRow {
   id: number;
   row: number;
+  branch: string;
   document_type: string;
   document_number: string;
   document_date: string;
@@ -348,6 +349,7 @@ function VatInner() {
                         <thead>
                           <tr>
                             <th>{t("vat.row")}</th>
+                            <th>{t("vat.col_branch")}</th>
                             <th>{t("vat.doc_type")}</th>
                             <th>{t("vat.document")}</th>
                             <th>{t("vat.date")}</th>
@@ -363,6 +365,7 @@ function VatInner() {
                           {pagedPur.map((r) => (
                             <tr key={r.id}>
                               <td>{r.row}</td>
+                              <td>{r.branch}</td>
                               <td>{r.document_type}</td>
                               <td>{r.document_number}</td>
                               <td>{formatBgDate(r.document_date)}</td>
@@ -377,7 +380,7 @@ function VatInner() {
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colSpan={7}>{t("vat.total")}</td>
+                            <td colSpan={8}>{t("vat.total")}</td>
                             <td className="num">{money(String(sumField(data.purchases, "base_no_credit")))}</td>
                             <td className="num">{money(String(sumField(data.purchases, "base_full_credit")))}</td>
                             <td className="num">{money(String(sumField(data.purchases, "vat_full_credit")))}</td>
@@ -414,6 +417,7 @@ function VatInner() {
                         <thead>
                           <tr>
                             <th>{t("vat.row")}</th>
+                            <th>{t("vat.col_branch")}</th>
                             <th>{t("vat.doc_type")}</th>
                             <th>{t("vat.document")}</th>
                             <th>{t("vat.date")}</th>
@@ -434,6 +438,7 @@ function VatInner() {
                           {pagedSal.map((r) => (
                             <tr key={r.id}>
                               <td>{r.row}</td>
+                              <td>{r.branch}</td>
                               <td>{r.document_type}</td>
                               <td>{r.document_number}</td>
                               <td>{formatBgDate(r.document_date)}</td>
@@ -453,7 +458,7 @@ function VatInner() {
                         </tbody>
                         <tfoot>
                           <tr>
-                            <td colSpan={7}>{t("vat.total")}</td>
+                            <td colSpan={8}>{t("vat.total")}</td>
                             <td className="num">{money(String(sumField(data.sales, "total_base")))}</td>
                             <td className="num">{money(String(sumField(data.sales, "total_vat")))}</td>
                             <td className="num">{money(String(sumField(data.sales, "base_20")))}</td>

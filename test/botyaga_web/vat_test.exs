@@ -166,6 +166,39 @@ defmodule BotyagaWeb.VatTest do
     assert binary_part(response(conn, 200), 0, 4) == "PK\x03\x04"
   end
 
+  test "клонът в POKUPKI и PRODAGBI е 0 по подразбиране", %{conn: conn, company: company} do
+    for kind <- ["pokupki", "prodagbi"] do
+      conn = get(conn, "/v1/vat/export?period=202611&type=#{kind}")
+      assert binary_part(response(conn, 200), 21, 4) == "   0"
+    end
+
+    body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
+    assert Enum.all?(body["purchases"], &(&1["branch"] == "0"))
+    assert Enum.all?(body["sales"], &(&1["branch"] == "0"))
+
+    patch(conn, "/v1/companies/#{company.id}", %{"vat_branch_number" => "2"})
+
+    for kind <- ["pokupki", "prodagbi"] do
+      conn = get(conn, "/v1/vat/export?period=202611&type=#{kind}")
+      assert binary_part(response(conn, 200), 21, 4) == "   2"
+    end
+
+    body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
+    assert Enum.all?(body["purchases"], &(&1["branch"] == "2"))
+    assert Enum.all?(body["sales"], &(&1["branch"] == "2"))
+  end
+
+  test "декларацията се подписва с избраното лице", %{conn: conn, company: company} do
+    patch(conn, "/v1/companies/#{company.id}", %{
+      "vat_submitter" => "manager",
+      "manager_egn" => "7001010000",
+      "manager_name" => "Петър Управител"
+    })
+
+    conn = get(conn, "/v1/vat/export?period=202611&type=deklar")
+    assert response(conn, 200) =~ "7001010000"
+  end
+
   test "ръчни клетки", %{conn: conn} do
     conn =
       put(conn, "/v1/vat/manual?period=2026-11", %{

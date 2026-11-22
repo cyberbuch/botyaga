@@ -217,6 +217,7 @@ export const enB = {
   "vat.result": "Period result",
   "vat.goods": "Goods / services",
   "vat.row": "No.",
+  "vat.col_branch": "Branch",
   "vat.total": "Total",
   "vat.download_zip": "ZIP for NRA",
   "vat.download_deklar": "DEKLAR.TXT",

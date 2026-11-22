@@ -10,6 +10,7 @@ defmodule Botyaga.Saft.Load do
   alias Botyaga.Repo
   alias Botyaga.Saft.Xml
   alias Botyaga.Catalog.{Account, Counterpart, Product}
+  alias Botyaga.Banking.Account, as: BankAccount
   alias Botyaga.Companies.{Company, Owner, Parent}
   alias Botyaga.Journal.{Entry, Line}
   alias Botyaga.Periods.OpeningBalance
@@ -26,6 +27,7 @@ defmodule Botyaga.Saft.Load do
         snap = %{
           company_id: company_id,
           company: company(c),
+          bank_accounts: bank_accounts_of(company_id),
           owners: owners_of(company_id),
           parents: parents_of(company_id),
           accounts: [],
@@ -55,7 +57,6 @@ defmodule Botyaga.Saft.Load do
       email: c.email || "",
       website: c.website || "",
       mol: c.mol || "",
-      iban: c.iban || "",
       fys: c.fiscal_year_start_month || 1,
       country: c.country || "",
       basis: c.tax_accounting_basis || "",
@@ -84,6 +85,16 @@ defmodule Botyaga.Saft.Load do
         first_lat: &1.first_name_latin || "",
         last_lat: &1.last_name_latin || "",
         country: &1.country || ""
+      }
+    )
+  end
+
+  defp bank_accounts_of(company_id) do
+    Repo.all(from(a in BankAccount, where: a.company_id == ^company_id, order_by: [asc: a.id]))
+    |> Enum.map(
+      &%{
+        iban: String.trim(&1.iban || ""),
+        account_number: String.trim(&1.account_number || "")
       }
     )
   end
