@@ -15,7 +15,7 @@ defmodule BotyagaWeb.VatController do
 
   def export(conn, params) do
     with {:ok, company_id} <- active(conn),
-         {:ok, file} <- Vat.export(company_id, params["period"] || "", params["type"] || "") do
+         {:ok, file} <- Vat.export(company_id, params["period"] || "", params) do
       conn
       |> put_resp_header("content-type", file.mime)
       |> put_resp_header("content-disposition", ~s(attachment; filename="#{file.filename}"))

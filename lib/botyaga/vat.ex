@@ -10,34 +10,67 @@ defmodule Botyaga.Vat do
   alias Botyaga.Invoicing.Money
   alias Botyaga.Journal.{Entry, Line}
   alias Botyaga.Vat.{Ex, Files, Fmt, Manual}
+  alias Botyaga.Vat.Print, as: VatPrint
   alias Botyaga.Vat.Line, as: VatLine
 
   def registers(company_id, period_raw) do
     with {:ok, pack} <- pack(company_id, period_raw), do: {:ok, pack.body}
   end
 
-  def export(company_id, period_raw, kind) do
+  def export(company_id, period_raw, params) when is_map(params) do
+    kind = to_string(params["type"] || "")
+
     with {:ok, pack} <- pack(company_id, period_raw) do
-      {data, mime, filename} =
-        case kind do
-          "pokupki" ->
-            {pack.pok, "text/plain; charset=windows-1251", "POKUPKI.TXT"}
+      case kind do
+        "print" -> print_export(pack, params)
+        _ -> nap_export(pack, kind)
+      end
+    end
+  end
 
-          k when k in ["prodagbi", "prodajbi"] ->
-            {pack.pro, "text/plain; charset=windows-1251", "PRODAGBI.TXT"}
+  defp nap_export(pack, kind) do
+    {data, mime, filename} =
+      case kind do
+        "pokupki" ->
+          {pack.pok, "text/plain; charset=windows-1251", "POKUPKI.TXT"}
 
-          "vies" ->
-            {pack.vies, "text/plain; charset=windows-1251", "VIES_#{pack.period_nap}.TXT"}
+        k when k in ["prodagbi", "prodajbi"] ->
+          {pack.pro, "text/plain; charset=windows-1251", "PRODAGBI.TXT"}
 
-          "zip" ->
-            {Files.zip3(pack.dek, pack.pok, pack.pro), "application/zip",
-             "PPDDS_#{pack.period_nap}.zip"}
+        "vies" ->
+          {pack.vies, "text/plain; charset=windows-1251", "VIES_#{pack.period_nap}.TXT"}
 
-          _ ->
-            {pack.dek, "text/plain; charset=windows-1251", "DEKLAR.TXT"}
+        "zip" ->
+          {Files.zip3(pack.dek, pack.pok, pack.pro), "application/zip",
+           "PPDDS_#{pack.period_nap}.zip"}
+
+        _ ->
+          {pack.dek, "text/plain; charset=windows-1251", "DEKLAR.TXT"}
+      end
+
+    {:ok, %{data: data, mime: mime, filename: filename}}
+  end
+
+  # Печат на дневника (за собственика/проверка): type=print&register=purchases|sales&format=pdf|xlsx|ods
+  defp print_export(pack, params) do
+    register = VatPrint.register_of(params["register"])
+    format = to_string(params["format"] || "pdf") |> String.trim()
+    bg = params["bg"] in ["1", 1, true]
+    name = "#{VatPrint.slug(register)}-#{pack.period_nap}"
+
+    case format do
+      "pdf" ->
+        with {:ok, bytes} <- VatPrint.pdf(pack.body, register) do
+          {:ok, %{data: bytes, mime: "application/pdf", filename: "#{name}.pdf"}}
         end
 
-      {:ok, %{data: data, mime: mime, filename: filename}}
+      f when f in ["xlsx", "ods"] ->
+        with {:ok, bytes, mime} <- VatPrint.sheet(pack.body, register, f, bg) do
+          {:ok, %{data: bytes, mime: mime, filename: "#{name}.#{f}"}}
+        end
+
+      _ ->
+        {:error, {400, "format трябва да е pdf, xlsx или ods"}}
     end
   end
 

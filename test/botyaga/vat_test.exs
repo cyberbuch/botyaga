@@ -1,7 +1,7 @@
 defmodule Botyaga.VatTest do
   use ExUnit.Case, async: true
 
-  alias Botyaga.Vat.{Files, Fmt, Line}
+  alias Botyaga.Vat.{Files, Fmt, Line, Print}
   alias Botyaga.Invoicing.Money
 
   describe "Fmt" do
@@ -163,6 +163,131 @@ defmodule Botyaga.VatTest do
       z = Files.zip3("a", "b", "c")
       assert binary_part(z, 0, 4) == "PK\x03\x04"
       assert :binary.match(z, "PK\x05\x06") != :nomatch
+    end
+  end
+
+  describe "Print (печат на дневниците)" do
+    defp purchase_row(overrides) do
+      %{
+        row: 1,
+        branch: "0",
+        document_type: "01",
+        document_number: "0001",
+        document_date: "2026-11-03",
+        counterpart_vat_number: "BG222333444",
+        counterpart_name: "Доставчик ООД",
+        goods: "Стока",
+        delivery_code: "",
+        base_no_credit: "0.00",
+        base_full_credit: "0.00",
+        vat_full_credit: "0.00",
+        base_partial: "0.00",
+        vat_partial: "0.00",
+        annual_adj: "0.00",
+        vop_base: "0.00"
+      }
+      |> Map.merge(overrides)
+    end
+
+    test "празните сумови колони се пропускат, празният текстов колон също" do
+      body = %{
+        period: "2026-11",
+        company_name: "Тест ООД",
+        company_vat: "BG207123456",
+        purchases: [purchase_row(%{base_full_credit: "100.00", vat_full_credit: "20.00"})],
+        sales: []
+      }
+
+      grid = Print.grid(body, "purchases")
+      header = hd(grid)
+
+      # информационните колони винаги остават
+      assert "№" in header
+      assert "Контрагент" in header
+      assert "Вид стока/услуга" in header
+      # ненулевите суми остават
+      assert "ДО пълен ДК" in header
+      assert "ДДС пълен ДК" in header
+
+      # нулевите суми и празните текстови колони се пропускат
+      refute "ДО без ДК" in header
+      refute "ВОП (покупки)" in header
+      refute "Годишна корекция" in header
+      refute "Код доставка" in header
+
+      # последният ред е „Общо“ със сумите по оставащите колони
+      totals = List.last(grid)
+      assert hd(totals) == "Общо"
+      idx = Enum.find_index(header, &(&1 == "ДО пълен ДК"))
+      assert Enum.at(totals, idx) == "100.00"
+      idx_vat = Enum.find_index(header, &(&1 == "ДДС пълен ДК"))
+      assert Enum.at(totals, idx_vat) == "20.00"
+
+      # датата е в bg формат
+      date_idx = Enum.find_index(header, &(&1 == "Дата"))
+      row1 = Enum.at(grid, 1)
+      assert Enum.at(row1, date_idx) == "03.11.2026"
+    end
+
+    test "продажби: остават само колоните с ненулеви стойности" do
+      body = %{
+        period: "2026-11",
+        company_name: "Тест ООД",
+        company_vat: "BG207123456",
+        sales: [
+          %{
+            row: 1,
+            branch: "0",
+            document_type: "01",
+            document_number: "0007",
+            document_date: "2026-11-05",
+            counterpart_vat_number: "BG999",
+            counterpart_name: "Клиент",
+            goods: "Услуга",
+            delivery_code: "",
+            total_base: "1000.00",
+            total_vat: "200.00",
+            base_20: "1000.00",
+            vat_20: "200.00",
+            vop_sales_base: "0.00",
+            vop_sales_vat: "0.00",
+            base_82: "0.00",
+            pers_amount: "0.00",
+            base_9: "0.00",
+            vat_9: "0.00",
+            base_0: "0.00",
+            base_vod: "0.00",
+            base_art: "0.00",
+            base_services: "0.00",
+            base_69: "0.00",
+            base_exempt: "0.00",
+            base_tri: "0.00"
+          }
+        ],
+        purchases: []
+      }
+
+      header = hd(Print.grid(body, "sales"))
+      assert "Общо ДО" in header
+      assert "ДО 20%" in header
+      assert "ДДС 20%" in header
+      refute "ДО 9%" in header
+      refute "ВОД" in header
+      refute "Освободени" in header
+      refute "Тристранни сделки" in header
+    end
+
+    test "display_grid форматира сумите в bg формат за PDF" do
+      grid = [["Сума"], ["1200.50"]]
+      assert Print.display_grid(grid) == [["Сума"], ["1 200,50"]]
+    end
+
+    test "register_of и slug" do
+      assert Print.register_of("sales") == "sales"
+      assert Print.register_of("prodagbi") == "sales"
+      assert Print.register_of(nil) == "purchases"
+      assert Print.slug("sales") == "dnevnik-prodagbi"
+      assert Print.title("purchases") == "Дневник за покупки"
     end
   end
 end

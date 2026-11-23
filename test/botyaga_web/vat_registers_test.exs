@@ -109,6 +109,60 @@ defmodule BotyagaWeb.VatRegistersTest do
     refute Enum.any?(body["purchases"], &(&1["document_number"] == "IN-PROT-1"))
   end
 
+  test "печат на дневниците: xlsx/ods са ZIP файлове, pdf без sidecar → 503, лош формат → 400", %{
+    conn: conn
+  } do
+    conn = get(conn, "/v1/vat/export?period=2026-11&type=print&register=purchases&format=xlsx")
+    assert conn.status == 200
+    assert get_resp_header(conn, "content-type") |> hd() =~ "spreadsheetml.sheet"
+    assert get_resp_header(conn, "content-disposition") |> hd() =~ "dnevnik-pokupki-202611.xlsx"
+    assert binary_part(conn.resp_body, 0, 2) == "PK"
+    assert :binary.match(conn.resp_body, "xl/worksheets/sheet1.xml") != :nomatch
+
+    conn = get(conn, "/v1/vat/export?period=2026-11&type=print&register=sales&format=ods&bg=1")
+    assert conn.status == 200
+    assert get_resp_header(conn, "content-type") |> hd() =~ "opendocument.spreadsheet"
+    assert get_resp_header(conn, "content-disposition") |> hd() =~ "dnevnik-prodagbi-202611.ods"
+    assert binary_part(conn.resp_body, 0, 2) == "PK"
+    assert :binary.match(conn.resp_body, "content.xml") != :nomatch
+
+    # в тестова среда няма print sidecar → pdf връща 503, а не 500
+    conn = get(conn, "/v1/vat/export?period=2026-11&type=print&register=sales&format=pdf")
+    assert json_response(conn, 503)
+
+    conn = get(conn, "/v1/vat/export?period=2026-11&type=print&register=sales&format=csv")
+    assert json_response(conn, 400)
+  end
+
+  test "файловете за НАП са с фиксирана ширина и Windows-1251 (като референтните в secret/VAT)",
+       %{
+         conn: conn
+       } do
+    # ширините са без CRLF (редът се дели на \r\n): 274/424/590 байта в cp1251
+    for {type, name, width} <- [
+          {"pokupki", "POKUPKI.TXT", 274},
+          {"prodagbi", "PRODAGBI.TXT", 424},
+          {"deklar", "DEKLAR.TXT", 590}
+        ] do
+      conn = get(conn, "/v1/vat/export?period=2026-11&type=#{type}")
+      assert conn.status == 200
+      assert get_resp_header(conn, "content-type") |> hd() =~ "windows-1251"
+      assert get_resp_header(conn, "content-disposition") |> hd() =~ name
+
+      for line <- String.split(conn.resp_body, "\r\n", trim: true) do
+        assert byte_size(line) == width
+      end
+    end
+
+    # ZIP съдържа трите файла
+    conn = get(conn, "/v1/vat/export?period=2026-11&type=zip")
+    assert conn.status == 200
+
+    for f <- ["DEKLAR.TXT", "POKUPKI.TXT", "PRODAGBI.TXT"] do
+      assert :binary.match(conn.resp_body, f) != :nomatch
+    end
+  end
+
   test "митническата декларация влиза в дневника на покупките", %{
     conn: conn,
     supplier: supplier,

@@ -124,7 +124,11 @@ defmodule Botyaga.Vat.Line do
       base_vod: Money.money(ln.s_vod),
       base_art: Money.money(ln.s_art),
       base_services: Money.money(ln.s_svc),
+      base_69: Money.money(ln.s_69),
       base_exempt: Money.money(ln.s_ex),
+      base_tri: Money.money(ln.s_tri),
+      base_82: Money.money(ln.s_82),
+      pers_amount: Money.money(ln.s_pers),
       base_amount: Money.money(base),
       vat_amount: Money.money(vat)
     }

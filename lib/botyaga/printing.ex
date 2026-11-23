@@ -21,9 +21,9 @@ defmodule Botyaga.Printing do
   table.totals td+td { text-align: right; }
   """
 
-  def render(blocks, format) do
+  def render(blocks, format, extra_style \\ "") do
     case format do
-      "pdf" -> Pdf.convert(html(blocks))
+      "pdf" -> Pdf.convert(html(blocks, extra_style))
       f when f in ["docx", "odt"] -> Office.convert(blocks, f)
       _ -> {:error, {422, "format трябва да е pdf/docx/odt"}}
     end
@@ -39,11 +39,13 @@ defmodule Botyaga.Printing do
       else: {:error, {422, "format трябва да е pdf/docx/odt"}}
   end
 
-  def html(blocks) do
+  def html(blocks), do: html(blocks, "")
+
+  def html(blocks, extra_style) do
     body = Enum.map_join(blocks, &block_html/1)
 
     "<!doctype html><html lang=\"bg\"><head><meta charset=\"utf-8\">" <>
-      "<style>#{@style}</style></head><body>#{body}</body></html>"
+      "<style>#{@style}#{extra_style}</style></head><body>#{body}</body></html>"
   end
 
   defp block_html({:head, t}), do: "<h1>#{xml_escape(t)}</h1>"

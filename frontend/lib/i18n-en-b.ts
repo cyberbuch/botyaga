@@ -239,6 +239,7 @@ export const enB = {
   "vat.section_c": "Section C — result",
   "vat.vies_empty": "No intra-community supplies in this period.",
   "vat.vies_hint": "Sales register rows with intra-community supply base (box 01-15).",
+  "vat.print": "Print (for review) — empty columns are skipped",
   "vat.c_01_01": "01-01 Total taxable bases",
   "vat.c_01_20": "01-20 Total output VAT",
   "vat.c_01_11": "01-11 Taxable base 20%",

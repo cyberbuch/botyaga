@@ -201,6 +201,42 @@ function VatInner() {
     }
   };
 
+  // Печат на дневника за собственика/проверка — PDF/XLSX/ODS, празните колони
+  // се пропускат (не се събират на лист по ширина).
+  const downloadPrint = async (
+    register: "purchases" | "sales",
+    fmt: "pdf" | "xlsx" | "ods"
+  ) => {
+    if (!data) return;
+    setError("");
+    try {
+      await downloadFile(
+        `/v1/vat/export?period=${encodeURIComponent(period)}&type=print&register=${register}&format=${fmt}&bg=1`,
+        `${register === "sales" ? "dnevnik-prodagbi" : "dnevnik-pokupki"}-${data.period_nap}.${fmt}`
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const printButtons = (register: "purchases" | "sales") => (
+    <div className="btn-row" style={{ margin: "0 0 10px", alignItems: "center" }}>
+      <span className="muted" style={{ fontSize: 13 }}>
+        {t("vat.print")}:
+      </span>
+      {(["pdf", "xlsx", "ods"] as const).map((fmt) => (
+        <button
+          key={fmt}
+          type="button"
+          className="btn btn-sm"
+          onClick={() => void downloadPrint(register, fmt)}
+        >
+          {fmt.toUpperCase()}
+        </button>
+      ))}
+    </div>
+  );
+
   const viesRows = data?.vies ?? [];
   const dueN = Number(data?.due ?? "0");
   const refundN = Number(data?.refund ?? "0");
@@ -341,6 +377,7 @@ function VatInner() {
               <div className="card" style={{ marginBottom: 18 }}>
                 <div className="content">
                   <h3 style={{ margin: "0 0 10px" }}>{t("vat.purchases")}</h3>
+                  {printButtons("purchases")}
                   {data.purchases.length === 0 ? (
                     <div className="muted">{t("common.empty")}</div>
                   ) : (
@@ -409,6 +446,7 @@ function VatInner() {
               <div className="card" style={{ marginBottom: 18 }}>
                 <div className="content">
                   <h3 style={{ margin: "0 0 10px" }}>{t("vat.sales")}</h3>
+                  {printButtons("sales")}
                   {data.sales.length === 0 ? (
                     <div className="muted">{t("common.empty")}</div>
                   ) : (
