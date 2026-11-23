@@ -374,7 +374,16 @@ export const enA = {
   "bank_tx.booked": "Transaction booked.",
   "bank_tx.reallocated": "Transaction reallocated.",
   "bank_tx.book_title": "Manual booking",
-  "bank_tx.book_hint": "Pick a counterpart and a corresponding account:",
+  "bank_tx.book_hint":
+    "Compose the entry line by line — account, direction, quantity, currency and rate (value = quantity × rate). Everything settles at the ECB rate; the difference (fee, FX difference) is income/expense from currency operations. The entry must be balanced: debit = credit.",
+  "bank_tx.book_incomplete": "Every line needs an account and an amount.",
+  "bank_tx.bank_account": "Bank account",
+  "bank_tx.unbook": "Return to draft",
+  "bank_tx.unbook_hint":
+    "Deletes the journal entry and returns the transaction to draft — only drafts can be edited again.",
+  "bank_tx.unbook_confirm":
+    "Return the transaction to draft? Its journal entry will be deleted.",
+  "bank_tx.unbooked": "Transaction returned to draft.",
   "bank_tx.book_preview": "Entry preview — created only on confirmation",
   "bank_tx.account": "Account",
   "bank_tx.debit": "Debit",

@@ -322,9 +322,8 @@ function JournalInner() {
     }
   };
 
-  const accountIsCurrency = (id: string) =>
-    accounts.find((a) => String(a.id) === id)?.is_currency === true;
-
+  // Всяка сметка може да е валутна — счетоводството се води в базовата
+  // валута, валутата/курсът на реда са свободни.
   const addLine = () => setLines((prev) => [...prev, emptyLine()]);
 
   const removeLine = (i: number) =>
@@ -819,7 +818,7 @@ function JournalInner() {
                         maxLength={3}
                         value={l.currency}
                         onChange={(e) => setLine(i, "currency", e.target.value.toUpperCase())}
-                        disabled={loadingEntry || readOnly || !accountIsCurrency(l.accountId)}
+                        disabled={loadingEntry || readOnly}
                       />
                       <input
                         className="input"
@@ -828,7 +827,7 @@ function JournalInner() {
                         title={t("journal.fx_rate")}
                         value={l.fxRate}
                         onChange={(e) => setLine(i, "fxRate", e.target.value)}
-                        disabled={loadingEntry || readOnly || !accountIsCurrency(l.accountId)}
+                        disabled={loadingEntry || readOnly}
                       />
                       <input
                         className="input journal-value-derived"

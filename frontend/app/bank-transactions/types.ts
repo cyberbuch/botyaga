@@ -10,6 +10,7 @@ export interface Account {
   id: number;
   number: string;
   name: string;
+  is_currency?: boolean;
 }
 
 export interface Counterpart {
@@ -43,6 +44,7 @@ export interface Preview {
 export interface BankTransaction {
   id: number;
   bank_account_id: number;
+  bank_account_name?: string;
   transaction_date: string;
   amount: string;
   currency: string;
@@ -74,6 +76,9 @@ export interface BookPreviewLine {
   account_name: string;
   direction: string;
   amount: string;
+  currency?: string;
+  fx_quantity?: string;
+  fx_rate?: string;
 }
 
 export interface BookPreview {
@@ -83,5 +88,28 @@ export interface BookPreview {
   currency: string;
   description: string;
   requires_confirm: boolean;
+  balanced?: boolean;
+  debit_total?: string;
+  credit_total?: string;
   lines: BookPreviewLine[];
 }
+
+// Ред от ръчното осчетоводяване — като LineDraft в дневника: стойността в
+// базова валута е производна = количество × курс.
+export interface BookLineDraft {
+  accountId: string;
+  direction: "debit" | "credit";
+  amount: string;
+  currency: string;
+  fxQuantity: string;
+  fxRate: string;
+}
+
+export const emptyBookLine = (): BookLineDraft => ({
+  accountId: "",
+  direction: "debit",
+  amount: "",
+  currency: "",
+  fxQuantity: "",
+  fxRate: "1",
+});

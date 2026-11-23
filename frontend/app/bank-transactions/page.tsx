@@ -1,23 +1,27 @@
 "use client";
 
 // Банкови транзакции: импорт от файл (преглед + дубликати), ръчно
-// осчетоводяване и разнасяне с търсене на контрагент и сметка — като
-// secret/baraba. Сумите остават десимални низове.
+// осчетоводяване (модал като „Нов запис“ в дневника — редове с валута и курс,
+// напр. USD→EUR по курс ЕЦБ + ред за банковата комисионна), разнасяне и
+// връщане в чернова. Сумите остават десимални низове.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RequireAuth } from "../../components/RequireAuth";
 import { useI18n } from "../../components/I18nProvider";
-import { api, fetchAll } from "../../lib/api";
+import { api, fetchAll, getActiveCompany, ACTIVE_COMPANY_EVENT } from "../../lib/api";
 import {
   Account,
   BankAccount,
   BankTransaction,
+  BookLineDraft,
   BookPreview,
   Counterpart,
   JeLine,
   Preview,
+  emptyBookLine,
 } from "./types";
 import { fmtAmount, isPositive, matchCounterpart } from "./helpers";
+import { BankBookModal } from "./BankBookModal";
 import { BankTxModals } from "./BankTxModals";
 import { BankRulesPanel } from "./BankRulesPanel";
 import { Pagination } from "../../components/Pagination";
@@ -69,14 +73,32 @@ function BankTransactionsInner() {
   const [importing, setImporting] = useState(false);
 
   const [bookTx, setBookTx] = useState<BankTransaction | null>(null);
-  const [bookContra, setBookContra] = useState(0);
-  const [bookDebit, setBookDebit] = useState(0);
-  const [bookCredit, setBookCredit] = useState(0);
   const [bookCpId, setBookCpId] = useState(0);
   const [bookCpSearch, setBookCpSearch] = useState("");
-  const [bookAccSearch, setBookAccSearch] = useState("");
+  const [bookDate, setBookDate] = useState("");
+  const [bookDesc, setBookDesc] = useState("");
+  const [bookLines, setBookLines] = useState<BookLineDraft[]>([emptyBookLine()]);
   const [bookLoading, setBookLoading] = useState(false);
   const [bookPreview, setBookPreview] = useState<BookPreview | null>(null);
+  const [bookFormError, setBookFormError] = useState("");
+  const [accountModalFor, setAccountModalFor] = useState<number | null>(null);
+  const [accountQuery, setAccountQuery] = useState("");
+  // базова валута на активната фирма — за нея курсът е 1
+  const [baseCurrency, setBaseCurrency] = useState("EUR");
+
+  useEffect(() => {
+    const readBase = () => {
+      getActiveCompany()
+        .then((c) => {
+          const cur = (c as { currency?: unknown }).currency;
+          if (typeof cur === "string" && cur) setBaseCurrency(cur.toUpperCase());
+        })
+        .catch(() => {});
+    };
+    readBase();
+    window.addEventListener(ACTIVE_COMPANY_EVENT, readBase);
+    return () => window.removeEventListener(ACTIVE_COMPANY_EVENT, readBase);
+  }, []);
 
   const [reallocTx, setReallocTx] = useState<BankTransaction | null>(null);
   const [reallocAccount, setReallocAccount] = useState(0);
@@ -236,17 +258,153 @@ function BankTransactionsInner() {
     }
   };
 
+  const bankGlId = useCallback(
+    (tx: BankTransaction | null): number => {
+      if (!tx) return 0;
+      const ba = accounts.find((a) => a.id === tx.bank_account_id);
+      return ba?.gl_account_id ?? 0;
+    },
+    [accounts]
+  );
+
   const openBook = (tx: BankTransaction) => {
     const m = matchCounterpart(tx.counterpart_name || "", counterparts);
+    const gl = bankGlId(tx);
+    const amt = Math.abs(parseFloat(String(tx.amount).replace(",", ".")) || 0);
+    const amtStr = amt.toFixed(2);
+    const cur = (tx.currency || "").trim().toUpperCase();
+    const foreign = cur !== "" && cur !== baseCurrency;
+    // Първият ред е банковата ГЛ сметка с посоката от знака на транзакцията;
+    // при валутна транзакция — във валутата на транзакцията (курс по ЕЦБ).
+    const first: BookLineDraft = {
+      accountId: gl > 0 ? String(gl) : "",
+      direction: isPositive(tx.amount) ? "debit" : "credit",
+      amount: amtStr,
+      currency: foreign ? cur : "",
+      fxQuantity: amtStr,
+      fxRate: "1",
+    };
     setBookTx(tx);
-    setBookContra(0);
-    setBookDebit(0);
-    setBookCredit(0);
     setBookCpId(m?.id ?? 0);
     setBookCpSearch(tx.counterpart_name || "");
-    setBookAccSearch("");
+    setBookDate(tx.transaction_date);
+    setBookDesc(tx.description || t("bank_tx.book_title"));
+    setBookLines(gl > 0 ? [first] : [emptyBookLine(), emptyBookLine()]);
     setBookPreview(null);
+    setBookFormError("");
+    setAccountModalFor(null);
+    setAccountQuery("");
+
+    // При валутна транзакция всичко се равнява по курса на ЕЦБ — курсът на
+    // банковия ред се взима веднага, а разликата (такса/валутна разлика) се
+    // добавя на ръка като приход/разход от валутни операции.
+    if (foreign && gl > 0) {
+      api
+        .get<{ rate: string; rate_date: string }>(
+          `/v1/exchange-rates/cross?from=${encodeURIComponent(cur)}&to=${encodeURIComponent(baseCurrency)}&date=${tx.transaction_date}`
+        )
+        .then((r) => {
+          setBookLines((prev) =>
+            prev.map((x, idx) => {
+              if (idx !== 0) return x;
+              const rr = parseFloat(r.rate);
+              const q = parseFloat(x.fxQuantity);
+              const next = { ...x, fxRate: r.rate };
+              if (!Number.isNaN(q) && !Number.isNaN(rr)) {
+                next.amount = (q * rr).toFixed(2);
+              }
+              return next;
+            })
+          );
+        })
+        .catch(() => {
+          /* курсът остава 1 — може да се смени ръчно или от бутона ЕЦБ */
+        });
+    }
   };
+
+  // Редовете на ръчното осчетоводяване — като в дневника: стойността е
+  // производна = количество × курс; за базовата валута курсът е 1.
+  const setBookLine = (
+    i: number,
+    f: "accountId" | "direction" | "amount" | "currency" | "fxQuantity" | "fxRate",
+    v: string
+  ) =>
+    setBookLines((prev) =>
+      prev.map((l, idx) => {
+        if (idx !== i) return l;
+        const next = { ...l, [f]: v };
+        if (f === "currency") {
+          const c = v.trim().toUpperCase();
+          if (c === "" || c === baseCurrency) next.fxRate = "1";
+        }
+        if (f === "fxQuantity" || f === "fxRate" || f === "currency") {
+          const q = parseFloat(next.fxQuantity);
+          const r = parseFloat(next.fxRate || "1");
+          if (!Number.isNaN(q) && !Number.isNaN(r)) next.amount = (q * r).toFixed(2);
+        }
+        return next;
+      })
+    );
+
+  const addBookLine = () => setBookLines((prev) => [...prev, emptyBookLine()]);
+  const removeBookLine = (i: number) =>
+    setBookLines((prev) => prev.filter((_, idx) => idx !== i));
+
+  // Курс от ЕЦБ (кръстосан през базовата валута) as-of датата на записа.
+  const fetchFxRate = async (i: number) => {
+    const l = bookLines[i];
+    const cur = l.currency.trim().toUpperCase();
+    if (!cur || !bookDate) return;
+    try {
+      const r = await api.get<{ rate: string; rate_date: string }>(
+        `/v1/exchange-rates/cross?from=${encodeURIComponent(cur)}&to=${encodeURIComponent(baseCurrency)}&date=${bookDate}`
+      );
+      setBookLines((prev) =>
+        prev.map((x, idx) => {
+          if (idx !== i) return x;
+          const next = { ...x, fxRate: r.rate };
+          const q = parseFloat(x.fxQuantity);
+          const rr = parseFloat(r.rate);
+          if (!Number.isNaN(q) && !Number.isNaN(rr)) next.amount = (q * rr).toFixed(2);
+          return next;
+        })
+      );
+    } catch (err) {
+      setBookFormError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const bookDebitSum = bookLines
+    .filter((l) => l.direction === "debit")
+    .reduce((acc, l) => acc + (parseFloat(l.amount) || 0), 0);
+  const bookCreditSum = bookLines
+    .filter((l) => l.direction === "credit")
+    .reduce((acc, l) => acc + (parseFloat(l.amount) || 0), 0);
+  const bookBalanced = Math.abs(bookDebitSum - bookCreditSum) < 0.0001;
+
+  const bookPayload = useCallback(() => {
+    const payload: Record<string, unknown> = {
+      entry_date: bookDate,
+      description: bookDesc,
+      lines: bookLines.map((l) => {
+        const cur = l.currency.trim().toUpperCase();
+        const foreign = cur !== "" && cur !== baseCurrency;
+        // За основната валута количеството съвпада със стойността (курс=1).
+        const quantity = l.fxQuantity !== "" ? l.fxQuantity : l.amount;
+        return {
+          account_id: Number(l.accountId) || 0,
+          direction: l.direction,
+          amount: l.amount,
+          currency: foreign ? cur : "",
+          fx_quantity: quantity,
+          fx_rate: foreign ? l.fxRate || "1" : "1",
+        };
+      }),
+    };
+    if (bookCpId > 0) payload.counterpart_id = bookCpId;
+    return payload;
+  }, [bookLines, bookDate, bookDesc, bookCpId, baseCurrency]);
 
   const openReallocate = async (tx: BankTransaction) => {
     const m = matchCounterpart(tx.counterpart_name || "", counterparts);
@@ -268,40 +426,26 @@ function BankTransactionsInner() {
     }
   };
 
-  const bankGlId = useCallback(
-    (tx: BankTransaction | null): number => {
-      if (!tx) return 0;
-      const ba = accounts.find((a) => a.id === tx.bank_account_id);
-      return ba?.gl_account_id ?? 0;
-    },
-    [accounts]
-  );
-
+  // Преглед на ръчния запис (редове + баланс) без да се пише в базата.
   useEffect(() => {
     if (!bookTx) {
       setBookPreview(null);
       return;
     }
-    const gl = bankGlId(bookTx);
-    const payload: Record<string, number> = {};
-    if (gl > 0) {
-      if (!bookContra) {
-        setBookPreview(null);
-        return;
-      }
-      payload.contra_account_id = bookContra;
-    } else {
-      if (!bookDebit || !bookCredit) {
-        setBookPreview(null);
-        return;
-      }
-      payload.debit_account_id = bookDebit;
-      payload.credit_account_id = bookCredit;
+    const ready =
+      bookDate !== "" &&
+      bookLines.length > 0 &&
+      bookLines.every((l) => l.accountId && l.amount && l.fxQuantity !== "");
+    if (!ready) {
+      setBookPreview(null);
+      return;
     }
-    if (bookCpId > 0) payload.counterpart_id = bookCpId;
     let cancelled = false;
     api
-      .post<BookPreview>(`/v1/bank-transactions/${bookTx.id}/book/preview`, payload)
+      .post<BookPreview>(
+        `/v1/bank-transactions/${bookTx.id}/book/preview`,
+        bookPayload()
+      )
       .then((p) => {
         if (!cancelled) setBookPreview(p);
       })
@@ -311,37 +455,42 @@ function BankTransactionsInner() {
     return () => {
       cancelled = true;
     };
-  }, [bookTx, bookContra, bookDebit, bookCredit, bookCpId, bankGlId]);
+  }, [bookTx, bookPayload, bookDate, bookLines]);
 
   const handleBook = async () => {
     if (!bookTx) return;
-    const gl = bankGlId(bookTx);
-    const payload: Record<string, number | boolean> = { confirm: true };
-    if (gl > 0) {
-      if (!bookContra) {
-        setError(t("bank_tx.pick_contra"));
-        return;
-      }
-      payload.contra_account_id = bookContra;
-    } else {
-      if (!bookDebit || !bookCredit) {
-        setError(t("bank_tx.pick_both_accounts"));
-        return;
-      }
-      payload.debit_account_id = bookDebit;
-      payload.credit_account_id = bookCredit;
+    if (!bookDate || bookLines.some((l) => !l.accountId || !l.amount)) {
+      setBookFormError(t("bank_tx.book_incomplete"));
+      return;
     }
-    if (bookCpId > 0) payload.counterpart_id = bookCpId;
     setBookLoading(true);
+    setBookFormError("");
     try {
-      await api.post(`/v1/bank-transactions/${bookTx.id}/book`, payload);
+      await api.post(`/v1/bank-transactions/${bookTx.id}/book`, {
+        ...bookPayload(),
+        confirm: true,
+      });
       setSuccess(t("bank_tx.booked"));
       setBookTx(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setBookFormError(e instanceof Error ? e.message : String(e));
     } finally {
       setBookLoading(false);
+    }
+  };
+
+  // Връщане на осчетоводена транзакция в чернова — само в чернова банковите
+  // транзакции могат да се редактират (преосчетоводяват) отново.
+  const handleUnbook = async (tx: BankTransaction) => {
+    if (!window.confirm(t("bank_tx.unbook_confirm"))) return;
+    try {
+      await api.post(`/v1/bank-transactions/${tx.id}/unbook`, {});
+      setSuccess(t("bank_tx.unbooked"));
+      setError("");
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   };
 
@@ -565,6 +714,15 @@ function BankTransactionsInner() {
                           {t("bank_tx.reallocate")}
                         </button>
                       )}
+                      {tx.is_booked && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => void handleUnbook(tx)}
+                          title={t("bank_tx.unbook_hint")}
+                        >
+                          {t("bank_tx.unbook")}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -617,6 +775,39 @@ function BankTransactionsInner() {
         </div>
       )}
 
+      <BankBookModal
+        t={t}
+        bookTx={bookTx}
+        setBookTx={setBookTx}
+        counterparts={counterparts}
+        chartAccounts={chartAccounts}
+        bookCpId={bookCpId}
+        bookCpSearch={bookCpSearch}
+        setBookCpSearch={setBookCpSearch}
+        setBookCpId={setBookCpId}
+        bookDate={bookDate}
+        setBookDate={setBookDate}
+        bookDesc={bookDesc}
+        setBookDesc={setBookDesc}
+        bookLines={bookLines}
+        setBookLine={setBookLine}
+        addBookLine={addBookLine}
+        removeBookLine={removeBookLine}
+        fetchFxRate={(i) => void fetchFxRate(i)}
+        accountModalFor={accountModalFor}
+        setAccountModalFor={setAccountModalFor}
+        accountQuery={accountQuery}
+        setAccountQuery={setAccountQuery}
+        baseCurrency={baseCurrency}
+        balanced={bookBalanced}
+        debitSum={bookDebitSum}
+        creditSum={bookCreditSum}
+        bookLoading={bookLoading}
+        bookPreview={bookPreview}
+        formError={bookFormError}
+        handleBook={() => void handleBook()}
+      />
+
       <BankTxModals
         t={t}
         counterparts={counterparts}
@@ -627,23 +818,6 @@ function BankTransactionsInner() {
         preview={preview}
         importing={importing}
         handleImport={handleImport}
-        bookTx={bookTx}
-        setBookTx={setBookTx}
-        bookCpId={bookCpId}
-        bookCpSearch={bookCpSearch}
-        setBookCpSearch={setBookCpSearch}
-        setBookCpId={setBookCpId}
-        bookContra={bookContra}
-        bookAccSearch={bookAccSearch}
-        setBookAccSearch={setBookAccSearch}
-        setBookContra={setBookContra}
-        bookDebit={bookDebit}
-        setBookDebit={setBookDebit}
-        bookCredit={bookCredit}
-        setBookCredit={setBookCredit}
-        handleBook={handleBook}
-        bookLoading={bookLoading}
-        bookPreview={bookPreview}
         reallocTx={reallocTx}
         setReallocTx={setReallocTx}
         reallocLines={reallocLines}
@@ -657,7 +831,6 @@ function BankTransactionsInner() {
         setReallocAccount={setReallocAccount}
         handleReallocate={handleReallocate}
         reallocLoading={reallocLoading}
-        bankGlId={bankGlId}
       />
     </div>
   );

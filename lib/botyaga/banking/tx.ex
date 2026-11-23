@@ -30,9 +30,13 @@ defmodule Botyaga.Banking.Tx do
 
     status = params["status"] || ""
 
+    names =
+      Repo.all(from(a in Account, where: a.company_id == ^company_id, select: {a.id, a.name}))
+      |> Map.new()
+
     Repo.all(query)
     |> Enum.filter(fn t -> keep?(t, status) end)
-    |> Enum.map(&tx_json/1)
+    |> Enum.map(&tx_json(&1, Map.get(names, &1.bank_account_id)))
   end
 
   defp keep?(t, "new"), do: t.is_booked == 0
@@ -105,11 +109,64 @@ defmodule Botyaga.Banking.Tx do
 
   def book(company_id, sub, id, params) do
     with :ok <- confirmed(params) do
-      cp = Params.integer(params, "counterpart_id") || 0
-      contra = Params.integer(params, "contra_account_id") || 0
-      debit = Params.integer(params, "debit_account_id")
-      credit = Params.integer(params, "credit_account_id")
-      book_tx(company_id, sub, id, contra, cp, debit, credit)
+      if lines_given?(params) do
+        book_lines(company_id, sub, id, params)
+      else
+        cp = Params.integer(params, "counterpart_id") || 0
+        contra = Params.integer(params, "contra_account_id") || 0
+        debit = Params.integer(params, "debit_account_id")
+        credit = Params.integer(params, "credit_account_id")
+        book_tx(company_id, sub, id, contra, cp, debit, credit)
+      end
+    end
+  end
+
+  @doc """
+  Връща осчетоводена транзакция в чернова: статията се изтрива, флаговете се
+  нулират. Само в чернова банковите транзакции могат да се редактират (пре-
+  осчетоводяват) отново.
+  """
+  def unbook(company_id, sub, id) do
+    with {:ok, tx} <- tx_row(company_id, id),
+         :ok <- booked(tx),
+         :ok <- Periods.assert_open(company_id, tx.txn_date) do
+      entry_id = tx.journal_entry_id
+
+      if entry_id > 0 do
+        Journal.wipe(entry_id)
+
+        Audit.record(
+          company_id,
+          sub,
+          "journal",
+          entry_id,
+          tx.reference,
+          "delete",
+          "Изтрита статия #{entry_id} — банкова транзакция #{tx.id} (#{tx.reference}) е върната в чернова, сума #{tx.amount}",
+          tx.amount,
+          "",
+          nil,
+          nil
+        )
+      end
+
+      Repo.update!(Ecto.Changeset.change(tx, is_booked: 0, is_allocated: 0, journal_entry_id: 0))
+
+      Audit.record(
+        company_id,
+        sub,
+        "bank_tx",
+        tx.id,
+        tx.reference,
+        "update",
+        "Банкова транзакция #{tx.id} (#{tx.reference}) върната в чернова за редактиране, сума #{tx.amount} #{tx.currency}",
+        tx.amount,
+        tx.amount,
+        nil,
+        nil
+      )
+
+      {:ok, %{message: "транзакцията е върната в чернова", transaction_id: tx.id}}
     end
   end
 
@@ -124,6 +181,14 @@ defmodule Botyaga.Banking.Tx do
   end
 
   def book_preview(company_id, id, params) do
+    if lines_given?(params) do
+      lines_preview(company_id, id, params)
+    else
+      simple_preview(company_id, id, params)
+    end
+  end
+
+  defp simple_preview(company_id, id, params) do
     cp = Params.integer(params, "counterpart_id") || 0
     contra = Params.integer(params, "contra_account_id") || 0
     debit = Params.integer(params, "debit_account_id")
@@ -219,6 +284,76 @@ defmodule Botyaga.Banking.Tx do
         "Осчетоводена банкова транзакция #{tx.id} (#{tx.reference}) — #{shown}, Дт #{debit.number} / Кт #{credit.number}, сума #{abs_s}",
         "",
         abs_s,
+        nil,
+        nil
+      )
+
+      result = %{message: "транзакцията е осчетоводена", journal_entry_id: entry}
+      {:ok, if(cp > 0, do: Map.put(result, :counterpart_id, cp), else: result)}
+    end
+  end
+
+  # Ръчно осчетоводяване с произволни редове (като „Нов запис“ в дневника):
+  # валута по ред, курс, количество — напр. превод USD→EUR по курс ЕЦБ с
+  # отделен ред за банковата комисионна.
+  defp book_lines(company_id, sub, id, params) do
+    cp = Params.integer(params, "counterpart_id") || 0
+
+    with {:ok, tx} <- tx_row(company_id, id),
+         :ok <- not_booked(tx),
+         :ok <- ensure_ref(Catalog.Counterpart, cp, company_id, "контрагентът"),
+         {:ok, ba} <- bank(company_id, tx.bank_account_id),
+         {:ok, date} <- entry_date(params, tx),
+         :ok <- Periods.assert_open(company_id, date),
+         {:ok, lines} <- parse_lines(params, company_id),
+         :ok <- check_balanced(lines),
+         :ok <- ensure_bank_line(lines, ba),
+         {:ok, cp_name} <- counterpart_name(cp, company_id) do
+      desc = param_desc(params, tx)
+      shown = if cp > 0, do: cp_name, else: tx.counterpart_name
+
+      sides =
+        Enum.map(lines, fn l ->
+          %{
+            account: l.account,
+            direction: l.direction,
+            amount: l.amount,
+            currency: l.currency,
+            fx_quantity: l.fx_quantity,
+            fx_rate: l.fx_rate
+          }
+        end)
+
+      {:ok, entry} =
+        Journal.write_entry(
+          company_id,
+          date,
+          "bank",
+          0,
+          tx.reference,
+          desc,
+          cp,
+          shown,
+          month_of(date),
+          sides
+        )
+
+      Repo.update!(
+        Ecto.Changeset.change(tx, is_booked: 1, is_allocated: 1, journal_entry_id: entry)
+      )
+
+      {debit, _credit} = line_totals(lines)
+
+      Audit.record(
+        company_id,
+        sub,
+        "journal",
+        entry,
+        tx.reference,
+        "create",
+        "Осчетоводена банкова транзакция #{tx.id} (#{tx.reference}) — #{shown}, #{length(lines)} реда, оборот #{Dec.money(debit)}",
+        "",
+        Dec.money(debit),
         nil,
         nil
       )
@@ -331,6 +466,183 @@ defmodule Botyaga.Banking.Tx do
   end
 
   ## Вътрешни
+
+  defp lines_given?(params) do
+    case Map.get(params, "lines") do
+      arr when is_list(arr) -> arr != []
+      _ -> false
+    end
+  end
+
+  defp lines_preview(company_id, id, params) do
+    cp = Params.integer(params, "counterpart_id") || 0
+
+    with {:ok, tx} <- tx_row(company_id, id),
+         :ok <- not_booked(tx),
+         :ok <- ensure_ref(Catalog.Counterpart, cp, company_id, "контрагентът"),
+         {:ok, ba} <- bank(company_id, tx.bank_account_id),
+         {:ok, date} <- entry_date(params, tx),
+         :ok <- Periods.assert_open(company_id, date),
+         {:ok, lines} <- parse_lines(params, company_id),
+         :ok <- ensure_bank_line(lines, ba) do
+      {debit, credit} = line_totals(lines)
+      amount = tx_amount(tx)
+
+      {:ok,
+       %{
+         transaction_id: tx.id,
+         date: date,
+         amount:
+           case amount do
+             {:ok, a} -> Dec.money(Dec.abs(a))
+             _ -> tx.amount
+           end,
+         currency: tx.currency,
+         description: param_desc(params, tx),
+         requires_confirm: true,
+         balanced: debit == credit,
+         debit_total: Dec.money(debit),
+         credit_total: Dec.money(credit),
+         lines: Enum.map(lines, &line_json/1)
+       }}
+    end
+  end
+
+  defp entry_date(params, tx) do
+    case Params.str(params, "entry_date") do
+      {:present, v} ->
+        v = String.trim(v)
+
+        cond do
+          v == "" -> {:ok, tx.txn_date}
+          String.match?(v, ~r/^\d{4}-\d{2}-\d{2}$/) -> {:ok, v}
+          true -> {:error, {422, "entry_date трябва да е във формат YYYY-MM-DD"}}
+        end
+
+      _ ->
+        {:ok, tx.txn_date}
+    end
+  end
+
+  defp param_desc(params, tx) do
+    case Params.str(params, "description") do
+      {:present, v} ->
+        v = String.trim(v)
+        if v == "", do: base_desc(tx), else: v
+
+      _ ->
+        base_desc(tx)
+    end
+  end
+
+  defp parse_lines(params, company_id) do
+    case Map.get(params, "lines") do
+      arr when is_list(arr) and arr != [] -> parse_each(arr, 0, [], company_id)
+      _ -> {:error, {422, "lines е задължително и не може да е празен"}}
+    end
+  end
+
+  defp parse_each([], _index, acc, _company_id), do: {:ok, Enum.reverse(acc)}
+
+  defp parse_each([item | rest], index, acc, company_id) when is_map(item) do
+    account_id = Params.integer(item, "account_id") || 0
+    direction = item |> line_str("direction") |> String.trim()
+    amount = item |> line_str("amount") |> String.trim()
+    currency = item |> line_str("currency") |> String.trim() |> String.upcase()
+    fx_quantity = item |> line_str("fx_quantity") |> String.trim()
+    fx_rate = item |> line_str("fx_rate") |> String.trim()
+
+    cond do
+      account_id <= 0 ->
+        {:error, {422, "lines[#{index}].account_id е задължителен"}}
+
+      direction not in ["debit", "credit"] ->
+        {:error, {422, "lines[#{index}].direction трябва да е debit или credit"}}
+
+      true ->
+        case Dec.parse(amount) do
+          nil ->
+            {:error, {422, "lines[#{index}].amount е невалидна сума"}}
+
+          0 ->
+            {:error, {422, "lines[#{index}].amount не може да е 0"}}
+
+          cents ->
+            case Repo.get_by(Catalog.Account, id: account_id, company_id: company_id) do
+              nil ->
+                {:error, {404, "lines[#{index}]: сметката не е намерена"}}
+
+              account ->
+                line = %{
+                  account_id: account_id,
+                  account: account,
+                  direction: direction,
+                  amount: Dec.money(cents),
+                  cents: cents,
+                  currency: currency,
+                  fx_quantity: if(fx_quantity == "", do: Dec.money(cents), else: fx_quantity),
+                  fx_rate: if(fx_rate == "", do: "1", else: fx_rate)
+                }
+
+                parse_each(rest, index + 1, [line | acc], company_id)
+            end
+        end
+    end
+  end
+
+  defp parse_each(_, index, _acc, _company_id),
+    do: {:error, {422, "lines[#{index}] трябва да е обект"}}
+
+  defp line_str(item, key) do
+    case Params.str(item, key) do
+      {:present, v} -> v
+      _ -> ""
+    end
+  end
+
+  defp line_totals(lines) do
+    Enum.reduce(lines, {0, 0}, fn l, {d, c} ->
+      if l.direction == "debit", do: {d + l.cents, c}, else: {d, c + l.cents}
+    end)
+  end
+
+  defp check_balanced(lines) do
+    {debit, credit} = line_totals(lines)
+
+    if debit == credit do
+      :ok
+    else
+      {:error, {422, "записът не е балансиран: Дт=#{Dec.money(debit)} Кт=#{Dec.money(credit)}"}}
+    end
+  end
+
+  # Когато банковата сметка има свързана ГЛ сметка, записът задължително
+  # трябва да я съдържа — иначе банковото движение не се отразява.
+  defp ensure_bank_line(lines, %Account{gl_account_id: gl}) when gl > 0 do
+    if Enum.any?(lines, &(&1.account_id == gl)) do
+      :ok
+    else
+      {:error, {422, "записът трябва да съдържа банковата ГЛ сметка на транзакцията"}}
+    end
+  end
+
+  defp ensure_bank_line(_lines, _ba), do: :ok
+
+  defp line_json(l) do
+    %{
+      account_id: l.account_id,
+      account_number: l.account.number,
+      account_name: l.account.name,
+      direction: l.direction,
+      amount: l.amount,
+      currency: l.currency,
+      fx_quantity: l.fx_quantity,
+      fx_rate: l.fx_rate
+    }
+  end
+
+  defp booked(%Transaction{is_booked: v}) when v != 0, do: :ok
+  defp booked(_), do: {:error, {409, "транзакцията не е осчетоводена"}}
 
   defp detect(content, hint) do
     case Formats.detect(content, hint) do
@@ -511,10 +823,11 @@ defmodule Botyaga.Banking.Tx do
 
   defp month_of(date), do: if(String.length(date) >= 7, do: String.slice(date, 0, 7), else: date)
 
-  defp tx_json(t) do
+  defp tx_json(t, ba_name) do
     %{
       id: t.id,
       bank_account_id: t.bank_account_id,
+      bank_account_name: ba_name || "",
       transaction_date: t.txn_date,
       amount: t.amount,
       currency: t.currency,

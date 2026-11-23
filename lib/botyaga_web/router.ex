@@ -174,6 +174,7 @@ defmodule BotyagaWeb.Router do
     post "/bank-transactions/:id/book/preview", BankingController, :book_preview
     post "/bank-transactions/:id/book", BankingController, :book
     post "/bank-transactions/:id/reallocate", BankingController, :reallocate
+    post "/bank-transactions/:id/unbook", BankingController, :unbook
     delete "/bank-transactions/:id", BankingController, :delete_transaction
 
     get "/bank-matching-rules", BankingController, :rules

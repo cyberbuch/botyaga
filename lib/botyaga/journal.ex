@@ -219,7 +219,10 @@ defmodule Botyaga.Journal do
           account_name: side.account.name,
           direction: side.direction,
           amount: side.amount,
-          vat_amount: "0"
+          vat_amount: "0",
+          currency: Map.get(side, :currency, "") || "",
+          fx_quantity: Map.get(side, :fx_quantity, side.amount) || side.amount,
+          fx_rate: Map.get(side, :fx_rate, "1") || "1"
         })
       end)
 

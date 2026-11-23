@@ -99,6 +99,15 @@ defmodule BotyagaWeb.BankingController do
     end
   end
 
+  def unbook(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, data} <- Tx.unbook(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, data)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   def delete_transaction(conn, %{"id" => id}) do
     with {:ok, company_id} <- active(conn),
          {:ok, nil} <- Tx.delete(company_id, conn.assigns.current_user.username, id) do
