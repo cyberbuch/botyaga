@@ -38,6 +38,7 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 |-------|-----|----------|
 | POST | `/v1/auth/token` | вход с имейл/потребителско име и парола → токен |
 | POST | `/v1/auth/mfa` | второ ниво (TOTP или резервен код) → токен |
+| POST | `/v1/auth/logout` | изход — обезсилва сесиите и записва събитието |
 | GET | `/v1/auth/registration-status` | регистрацията включена ли е |
 | POST | `/v1/auth/register` | самостоятелна регистрация |
 | POST | `/v1/auth/forgot-password` | писмо за смяна на парола |
@@ -82,10 +83,13 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 |-------|-----|----------|
 | GET / POST | `/v1/companies/:id/users` | членове на фирмата |
 | PATCH / DELETE | `/v1/companies/:id/users/:user_id` | роля / премахване |
-| GET / POST | `/v1/users` | потребители (суперадминистратор) |
-| PATCH / DELETE | `/v1/users/:id` | редакция / изтриване |
+| GET / POST | `/v1/users` | потребители (суперадминистратор); `memberships` обвързва с фирма+роля |
+| PATCH / DELETE | `/v1/users/:id` | редакция / изтриване; `memberships` синхронизира членствата |
 | GET / POST | `/v1/roles` | роли |
 | PATCH / DELETE | `/v1/roles/:id` | редакция / изтриване |
+| GET | `/v1/admin/access` | матрица потребители × фирми × роли (суперадминистратор) |
+| GET | `/v1/admin/login-events` | лог за влизане/излизане с IP и user-agent (суперадминистратор) |
+| POST | `/v1/admin/users/:id/revoke-sessions` | прекратява всички сесии на потребител |
 
 Системни настройки (суперадминистратор):
 

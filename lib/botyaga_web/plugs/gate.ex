@@ -8,7 +8,7 @@ defmodule BotyagaWeb.Plugs.Gate do
 
   alias Botyaga.{Accounts, Access, Companies}
 
-  @public ~w(/v1/auth/token /v1/auth/mfa /v1/auth/register /v1/auth/forgot-password
+  @public ~w(/v1/auth/token /v1/auth/mfa /v1/auth/logout /v1/auth/register /v1/auth/forgot-password
               /v1/auth/reset-password /v1/auth/registration-status)
 
   def init(opts), do: opts
@@ -176,6 +176,7 @@ defmodule BotyagaWeb.Plugs.Gate do
 
   defp segment_permission(_method, "users", _), do: {:key, "users"}
   defp segment_permission(_method, "roles", _), do: {:key, "users"}
+  defp segment_permission(_method, "admin", _), do: {:key, "users"}
   defp segment_permission(_method, "system-settings", _), do: {:key, "settings"}
   defp segment_permission(_method, "exchange-rates", _), do: {:key, "rates"}
 

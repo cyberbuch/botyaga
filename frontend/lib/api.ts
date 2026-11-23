@@ -238,7 +238,14 @@ export async function loginMfa(mfaToken: string, code: string): Promise<TokenRes
   return data;
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+  if (getToken()) {
+    try {
+      await api.post("/v1/auth/logout", {});
+    } catch {
+      // изходът е локален дори сървърът да не отговори
+    }
+  }
   setToken(null);
 }
 

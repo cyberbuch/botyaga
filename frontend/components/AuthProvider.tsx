@@ -26,7 +26,7 @@ interface AuthContextValue {
   isSuperAdmin: boolean;
   can: (permission: string) => boolean;
   login: (username: string, password: string) => Promise<{ mfa?: string; mfa_token?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextValue>({
   isSuperAdmin: false,
   can: () => true,
   login: async () => ({}),
-  logout: () => {},
+  logout: async () => {},
 });
 
 // Монтиран флаг: фалш на сървъра/хидратацията, истина на клиента —
@@ -97,8 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { mfa: r.mfa, mfa_token: r.mfa_token };
   }, []);
 
-  const logout = useCallback(() => {
-    apiLogout();
+  const logout = useCallback(async () => {
+    await apiLogout();
   }, []);
 
   return (

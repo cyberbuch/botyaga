@@ -28,6 +28,7 @@ defmodule BotyagaWeb.Router do
 
     post "/token", AuthController, :token
     post "/mfa", AuthController, :mfa
+    post "/logout", AuthController, :logout
     get "/registration-status", AuthFlowController, :registration_status
     post "/register", AuthFlowController, :register
     post "/forgot-password", AuthFlowController, :forgot_password
@@ -81,6 +82,10 @@ defmodule BotyagaWeb.Router do
     post "/roles", AccessController, :roles_create
     patch "/roles/:id", AccessController, :roles_update
     delete "/roles/:id", AccessController, :roles_delete
+
+    get "/admin/access", AdminController, :access
+    get "/admin/login-events", AdminController, :login_events
+    post "/admin/users/:id/revoke-sessions", AdminController, :revoke_sessions
 
     get "/system-settings", SettingsController, :index
     put "/system-settings", SettingsController, :update

@@ -157,6 +157,29 @@ defmodule Botyaga.Access do
   def super_count,
     do: Repo.aggregate(from(u in Accounts.User, where: u.is_super_admin == 1), :count, :id)
 
+  @doc "Всички членства с име на фирма и роля — за админ матрицата."
+  def all_memberships do
+    Repo.all(
+      from(m in Membership,
+        left_join: r in Role,
+        on: m.role_id == r.id,
+        left_join: c in Botyaga.Companies.Company,
+        on: m.company_id == c.id,
+        order_by: [asc: m.user_id, asc: m.company_id],
+        select: {m, r, c}
+      )
+    )
+    |> Enum.map(fn {m, r, c} ->
+      %{
+        user_id: m.user_id,
+        company_id: m.company_id,
+        company_name: c && c.name,
+        role_id: m.role_id,
+        role: r && r.name
+      }
+    end)
+  end
+
   @doc "Съществуващите потребители получават администраторска роля във всички фирми."
   def backfill do
     with {:ok, admin_id} <- role_id_by_name(@role_admin),
@@ -221,17 +244,25 @@ defmodule Botyaga.Access do
       if Accounts.email_taken?(email) do
         {:error, {409, "имейлът вече се ползва"}}
       else
-        {:ok,
-         Accounts.create_user(
-           email,
-           name,
-           password,
-           string_or(params, "role", "user"),
-           is_active: Params.flag(params, "is_active") || 1,
-           is_super_admin: Params.flag(params, "is_super_admin") || 0,
-           role_id: Params.integer(params, "role_id") || 0
-         )
-         |> elem(1)}
+        is_super = Params.flag(params, "is_super_admin") || 0
+        memberships = parse_memberships(params)
+
+        with :ok <- check_memberships(is_super, memberships) do
+          user =
+            Accounts.create_user(
+              email,
+              name,
+              password,
+              string_or(params, "role", "user"),
+              is_active: Params.flag(params, "is_active") || 1,
+              is_super_admin: is_super,
+              role_id: Params.integer(params, "role_id") || 0
+            )
+            |> elem(1)
+
+          sync_memberships(user.id, memberships, is_super)
+          {:ok, user}
+        end
       end
     end
   end
@@ -239,16 +270,20 @@ defmodule Botyaga.Access do
   def update_user(user, params) do
     email = optional_string(params, "email")
     password = optional_string(params, "password")
+    next_super = Params.flag(params, "is_super_admin") || user.is_super_admin
+    given? = memberships_given?(params)
+    memberships = if given?, do: parse_memberships(params), else: existing_memberships(user.id)
 
     with :ok <- check_email_change(user, email, password),
          :ok <- check_password_length(password),
-         :ok <- check_last_super_admin(user, params) do
+         :ok <- check_last_super_admin(user, params),
+         :ok <- check_memberships(next_super, memberships) do
       Repo.transaction(fn ->
         changes = %{
           name: optional_string(params, "name") || user.name,
           role: optional_string(params, "role") || user.role,
           is_active: Params.flag(params, "is_active") || user.is_active,
-          is_super_admin: Params.flag(params, "is_super_admin") || user.is_super_admin,
+          is_super_admin: next_super,
           role_id: Params.integer(params, "role_id") || user.role_id
         }
 
@@ -262,11 +297,73 @@ defmodule Botyaga.Access do
           )
         end
 
+        if given?, do: sync_memberships(user.id, memberships, next_super)
         :ok
       end)
 
       {:ok, Repo.get(Accounts.User, user.id)}
     end
+  end
+
+  # Всеки потребител освен суперадминистратор трябва да е обвързан с фирма и роля.
+  defp check_memberships(1, _), do: :ok
+
+  defp check_memberships(_, []),
+    do: {:error, {422, "потребителят трябва да е обвързан с поне една фирма и роля"}}
+
+  defp check_memberships(_, list) do
+    Enum.reduce_while(list, :ok, fn m, _ ->
+      cond do
+        Repo.get(Botyaga.Companies.Company, m.company_id) == nil ->
+          {:halt, {:error, {422, "фирмата не е намерена"}}}
+
+        get_role(m.role_id) == nil ->
+          {:halt, {:error, {422, "ролята не е намерена"}}}
+
+        true ->
+          {:cont, :ok}
+      end
+    end)
+  end
+
+  defp sync_memberships(_user_id, _memberships, 1), do: :ok
+
+  defp sync_memberships(user_id, memberships, _) do
+    wanted = Enum.map(memberships, & &1.company_id)
+    for cid <- company_ids_of(user_id), cid not in wanted, do: revoke(user_id, cid)
+    for m <- memberships, do: grant(user_id, m.company_id, m.role_id)
+    :ok
+  end
+
+  defp memberships_given?(params),
+    do: Map.has_key?(params, "memberships") or Map.has_key?(params, :memberships)
+
+  defp parse_memberships(params) do
+    raw = Map.get(params, "memberships") || Map.get(params, :memberships) || []
+
+    if is_list(raw) do
+      raw
+      |> Enum.filter(&is_map/1)
+      |> Enum.map(fn m ->
+        %{
+          company_id: Params.id(Map.get(m, "company_id") || Map.get(m, :company_id)),
+          role_id: Params.id(Map.get(m, "role_id") || Map.get(m, :role_id))
+        }
+      end)
+      |> Enum.filter(&(&1.company_id > 0 and &1.role_id > 0))
+      |> Enum.uniq_by(& &1.company_id)
+    else
+      []
+    end
+  end
+
+  defp existing_memberships(user_id) do
+    Repo.all(
+      from(m in Membership,
+        where: m.user_id == ^user_id,
+        select: %{company_id: m.company_id, role_id: m.role_id}
+      )
+    )
   end
 
   def delete_user(user) do

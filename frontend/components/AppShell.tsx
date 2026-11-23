@@ -93,8 +93,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener(ACTIVE_COMPANY_EVENT, onActiveChange);
   }, [loadCompanies, refreshActive]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.push("/login");
   };
 

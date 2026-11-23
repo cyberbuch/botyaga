@@ -1,7 +1,7 @@
 defmodule BotyagaWeb.AuthController do
   use BotyagaWeb, :controller
 
-  alias Botyaga.{Accounts, Accounts.Totp, RateLimit}
+  alias Botyaga.{Accounts, Accounts.LoginLog, Accounts.Totp, RateLimit}
   alias BotyagaWeb.Respond
 
   def token(conn, params) do
@@ -17,6 +17,8 @@ defmodule BotyagaWeb.AuthController do
           do_token(conn, login, password)
 
         seconds ->
+          LoginLog.record(conn, "locked", login, 0, "заключен след неуспешни опити")
+
           Respond.error(
             conn,
             {429, "твърде много неуспешни опити, опитайте след #{ceil(seconds / 60)} минути"}
@@ -29,6 +31,7 @@ defmodule BotyagaWeb.AuthController do
     case Accounts.authenticate(login, password) do
       :error ->
         RateLimit.login_failure(login)
+        LoginLog.record(conn, "login_failed", login, 0, "грешен потребител или парола")
         Respond.error(conn, {401, "грешен потребител или парола"})
 
       {:rehash, user} ->
@@ -45,11 +48,13 @@ defmodule BotyagaWeb.AuthController do
 
     cond do
       user.is_active != 1 ->
+        LoginLog.record(conn, "login_failed", login, user.id, "неактивен потребител")
         Respond.error(conn, {403, "потребителят е неактивен"})
 
       user.totp_enabled == 1 ->
         secret = Application.get_env(:botyaga, :jwt_secret)
         token = Accounts.JWT.issue(secret, user.username, user.session_version, 1)
+        LoginLog.record(conn, "mfa_required", login, user.id)
 
         Respond.ok(conn, %{
           mfa: "totp",
@@ -61,6 +66,7 @@ defmodule BotyagaWeb.AuthController do
       true ->
         secret = Application.get_env(:botyaga, :jwt_secret)
         token = Accounts.JWT.issue(secret, user.username, user.session_version)
+        LoginLog.record(conn, "login", login, user.id)
 
         Respond.ok(conn, %{
           access_token: token,
@@ -132,6 +138,7 @@ defmodule BotyagaWeb.AuthController do
     if ok do
       Accounts.mfa_reset(user)
       token = Accounts.JWT.issue(secret, user.username, user.session_version)
+      LoginLog.record(conn, "login", user.username, user.id, "2FA")
 
       Respond.ok(conn, %{
         access_token: token,
@@ -144,10 +151,48 @@ defmodule BotyagaWeb.AuthController do
 
       if fails >= 5 do
         Accounts.mfa_lock(user, now + 900)
+        LoginLog.record(conn, "locked", user.username, user.id, "2FA заключен")
         Respond.error(conn, {429, "изчерпани опити за 2FA — заключено за 15 минути"})
       else
+        LoginLog.record(conn, "mfa_failed", user.username, user.id)
         Respond.error(conn, {401, "грешен код"})
       end
+    end
+  end
+
+  @doc "Изход: обезсилва сесиите на потребителя и записва събитието."
+  def logout(conn, _params) do
+    secret = Application.get_env(:botyaga, :jwt_secret)
+    token = bearer(conn)
+
+    case Accounts.JWT.decode(secret, token) do
+      {:ok, %{"sub" => sub}} when sub != "" ->
+        case Accounts.get_by_login(sub) do
+          nil ->
+            Respond.ok(conn, %{ok: true})
+
+          user ->
+            Accounts.bump_version(user.id)
+            LoginLog.record(conn, "logout", user.username, user.id)
+            Respond.ok(conn, %{ok: true})
+        end
+
+      _ ->
+        Respond.ok(conn, %{ok: true})
+    end
+  end
+
+  defp bearer(conn) do
+    case Plug.Conn.get_req_header(conn, "authorization") do
+      [value | _] ->
+        case String.trim(value) do
+          "Bearer " <> token -> String.trim(token)
+          "bearer " <> token -> String.trim(token)
+          _ -> ""
+        end
+
+      [] ->
+        ""
     end
   end
 end
