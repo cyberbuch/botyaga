@@ -256,6 +256,8 @@ export const bgA = {
   "settings.person.egn": "ЕГН",
   "settings.country": "Държава",
   "settings.vat_branch": "Поделение (клон)",
+  "settings.vat_purchase_goods": "Описание за покупки (ДДС дневник)",
+  "settings.vat_sales_goods": "Описание за продажби (ДДС дневник)",
   "settings.mistral_key": "Mistral AI API ключ",
   "settings.mistral_hint": "По фирма. Европейски оператор: финансовите данни не се изнасят към трети страни. VIES и адрес към SAF-T, сканиране на фактури (OCR 4.1 + Small 4).",
   "settings.zhipu_key": "Zhipu AI (GLM-OCR) API ключ",

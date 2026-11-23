@@ -190,6 +190,19 @@ defmodule BotyagaWeb.CompaniesTest do
                "vat_branch_number трябва да е число от 0 до 9999"
     end
 
+    test "категорията за ДДС описа е от падащото меню; друга се отказва" do
+      super = superadmin()
+      {:ok, company, _seeded} = Companies.create(%{"name" => "Тест", "eik" => "207123456"}, super)
+      conn = build_conn() |> auth_conn(super)
+
+      conn = patch(conn, "/v1/companies/#{company.id}", %{"vat_purchase_goods" => "material"})
+      assert json_response(conn, 200)["vat_purchase_goods"] == "material"
+
+      conn = build_conn() |> auth_conn(super)
+      conn = patch(conn, "/v1/companies/#{company.id}", %{"vat_sales_goods" => "нещо"})
+      assert json_response(conn, 422)["detail"] =~ "категориите"
+    end
+
     test "settings връща фирмата и списъците" do
       super = superadmin()
       {:ok, company, _seeded} = Companies.create(%{"name" => "Тест", "eik" => "207123456"}, super)

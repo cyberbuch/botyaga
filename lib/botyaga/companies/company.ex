@@ -21,6 +21,8 @@ defmodule Botyaga.Companies.Company do
     field :tax_authority, :string
     field :nap_office, :string
     field :vat_submitter, :string, default: "accountant"
+    field :vat_purchase_goods, :string, default: "stock"
+    field :vat_sales_goods, :string, default: "stock"
     field :inventory_valuation_method, :string, default: "WAC"
     field :fiscal_year_start_month, :integer, default: 1
     field :country, :string, default: "BG"

@@ -15,13 +15,28 @@ defmodule Botyaga.Companies do
 
   @string_fields ~w(name eik vat_number vat_period currency address city post_code phone email
                      website mol manager_eik accountant_name accountant_egn tax_authority nap_office
-                     vat_submitter inventory_valuation_method country manager_name manager_egn
+                     vat_submitter vat_purchase_goods vat_sales_goods inventory_valuation_method country manager_name manager_egn
                      authorized_person_name authorized_person_egn vat_branch_number tax_accounting_basis
                      tax_entity software_company_name software_id software_version is_part_of_group
                      street_name building_number address_building additional_address_detail address_type
                      region settings)
 
   def blank, do: %Company{}
+
+  # Категории за „Вид на стоката/услугата“ в ДДС дневниците — падащото меню на
+  # НАП. Стойността е ключ; в файла за НАП отива българската дума.
+  @vat_goods %{
+    "stock" => "Стока",
+    "material" => "Материал",
+    "product" => "Продукт",
+    "service" => "Услуга",
+    "asset" => "Актив",
+    "advance" => "Аванс",
+    "other" => "Друго"
+  }
+
+  def vat_goods_keys, do: Map.keys(@vat_goods)
+  def vat_goods_label(key), do: Map.get(@vat_goods, key, "Стока")
 
   def get_company(id), do: Repo.get(Company, id)
 
@@ -316,7 +331,8 @@ defmodule Botyaga.Companies do
            optional_flag(params, "is_vat_registered", company.is_vat_registered),
          {:ok, fiscal_month} <-
            optional_int(params, "fiscal_year_start_month", company.fiscal_year_start_month),
-         :ok <- check_branch(changes) do
+         :ok <- check_branch(changes),
+         :ok <- check_goods(changes) do
       changes =
         changes
         |> Map.put(:is_vat_registered, is_vat_registered)
@@ -325,6 +341,22 @@ defmodule Botyaga.Companies do
 
       {:ok, Ecto.Changeset.change(company, changes)}
     end
+  end
+
+  defp check_goods(changes) do
+    Enum.reduce_while([:vat_purchase_goods, :vat_sales_goods], :ok, fn field, _ ->
+      case Map.get(changes, field) do
+        nil ->
+          {:cont, :ok}
+
+        raw ->
+          if String.trim(raw) in vat_goods_keys() do
+            {:cont, :ok}
+          else
+            {:halt, {:error, {422, "#{field} трябва да е една от категориите за ДДС дневника"}}}
+          end
+      end
+    end)
   end
 
   # Клон/обособено звено в POKUPKI/PRODAGBI е цифрово поле (4), 0..9999.
@@ -384,6 +416,16 @@ defmodule Botyaga.Companies do
     changes =
       if blank?(Map.get(changes, :vat_submitter)),
         do: Map.put(changes, :vat_submitter, company.vat_submitter || "accountant"),
+        else: changes
+
+    changes =
+      if blank?(Map.get(changes, :vat_purchase_goods)),
+        do: Map.put(changes, :vat_purchase_goods, company.vat_purchase_goods || "stock"),
+        else: changes
+
+    changes =
+      if blank?(Map.get(changes, :vat_sales_goods)),
+        do: Map.put(changes, :vat_sales_goods, company.vat_sales_goods || "stock"),
         else: changes
 
     changes =

@@ -4,6 +4,16 @@ import { FormEvent } from "react";
 import { SettingsField } from "./SettingsField";
 import { Form } from "./settingsTypes";
 
+const VAT_GOODS = ["stock", "material", "product", "service", "asset", "advance", "other"];
+
+function goodsOptions(t: (k: string) => string) {
+  return VAT_GOODS.map((k) => (
+    <option key={k} value={k}>
+      {t(`vat.goods.${k}`)}
+    </option>
+  ));
+}
+
 export function SettingsCompanyTab({
   t,
   companyForm,
@@ -176,6 +186,16 @@ export function SettingsCompanyTab({
             </SettingsField>
             <SettingsField label={t("companies.fiscal_year_start_month")}>
               <input className="input" type="number" min={1} max={12} value={companyForm.fiscal_year_start_month ?? "1"} onChange={(e) => setC("fiscal_year_start_month", e.target.value)} />
+            </SettingsField>
+            <SettingsField label={t("settings.vat_purchase_goods")}>
+              <select className="select" value={companyForm.vat_purchase_goods ?? "stock"} onChange={(e) => setC("vat_purchase_goods", e.target.value)}>
+                {goodsOptions(t)}
+              </select>
+            </SettingsField>
+            <SettingsField label={t("settings.vat_sales_goods")}>
+              <select className="select" value={companyForm.vat_sales_goods ?? "stock"} onChange={(e) => setC("vat_sales_goods", e.target.value)}>
+                {goodsOptions(t)}
+              </select>
             </SettingsField>
           </div>
 

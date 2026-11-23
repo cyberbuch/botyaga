@@ -188,6 +188,75 @@ defmodule BotyagaWeb.VatTest do
     assert Enum.all?(body["sales"], &(&1["branch"] == "2"))
   end
 
+  test "празно описание се запълва с категорията на фирмата", %{
+    conn: conn,
+    company: company,
+    by_number: by_number
+  } do
+    patch(conn, "/v1/companies/#{company.id}", %{
+      "vat_purchase_goods" => "asset",
+      "vat_sales_goods" => "service"
+    })
+
+    post(conn, "/v1/journal", %{
+      "entry_date" => "2026-11-20",
+      "description" => "",
+      "vat_type" => "purchase",
+      "vat_period" => "2026-11",
+      "lines" => [
+        %{
+          "account_id" => by_number["302"],
+          "direction" => "debit",
+          "amount" => "100.00",
+          "vat_amount" => "20.00"
+        },
+        %{
+          "account_id" => by_number["4531"],
+          "direction" => "debit",
+          "amount" => "20.00",
+          "vat_amount" => "0"
+        },
+        %{
+          "account_id" => by_number["401"],
+          "direction" => "credit",
+          "amount" => "120.00",
+          "vat_amount" => "0"
+        }
+      ]
+    })
+
+    post(conn, "/v1/journal", %{
+      "entry_date" => "2026-11-21",
+      "description" => "",
+      "vat_type" => "sales",
+      "vat_period" => "2026-11",
+      "lines" => [
+        %{
+          "account_id" => by_number["411"],
+          "direction" => "debit",
+          "amount" => "120.00",
+          "vat_amount" => "0"
+        },
+        %{
+          "account_id" => by_number["702"],
+          "direction" => "credit",
+          "amount" => "100.00",
+          "vat_amount" => "0"
+        },
+        %{
+          "account_id" => by_number["4532"],
+          "direction" => "credit",
+          "amount" => "20.00",
+          "vat_amount" => "20.00"
+        }
+      ]
+    })
+
+    body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
+    assert Enum.any?(body["purchases"], &(&1["goods"] == "Актив"))
+    assert Enum.any?(body["sales"], &(&1["goods"] == "Услуга"))
+  end
+
   test "декларацията се подписва с избраното лице", %{conn: conn, company: company} do
     patch(conn, "/v1/companies/#{company.id}", %{
       "vat_submitter" => "manager",

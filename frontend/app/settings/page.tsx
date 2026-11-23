@@ -117,6 +117,8 @@ function SettingsInner() {
       tax_authority: str(c.tax_authority),
       nap_office: str(c.nap_office),
       vat_submitter: str(c.vat_submitter, "accountant"),
+      vat_purchase_goods: str(c.vat_purchase_goods, "stock"),
+      vat_sales_goods: str(c.vat_sales_goods, "stock"),
       is_vat_registered:
         Number(c.is_vat_registered) && str(c.vat_number).trim().length > 0 ? "1" : "0",
       vat_period: str(c.vat_period, "monthly"),
@@ -219,6 +221,8 @@ function SettingsInner() {
         tax_authority: companyForm.tax_authority,
         nap_office: companyForm.nap_office,
         vat_submitter: companyForm.vat_submitter,
+        vat_purchase_goods: companyForm.vat_purchase_goods,
+        vat_sales_goods: companyForm.vat_sales_goods,
         is_vat_registered:
           companyForm.is_vat_registered === "1" &&
           (companyForm.vat_number ?? "").trim().length > 0,

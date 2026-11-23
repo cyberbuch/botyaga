@@ -29,6 +29,8 @@ defmodule BotyagaWeb.Render do
       tax_authority: company.tax_authority,
       nap_office: company.nap_office,
       vat_submitter: company.vat_submitter,
+      vat_purchase_goods: company.vat_purchase_goods,
+      vat_sales_goods: company.vat_sales_goods,
       inventory_valuation_method: company.inventory_valuation_method,
       fiscal_year_start_month: company.fiscal_year_start_month,
       country: company.country,

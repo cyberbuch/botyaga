@@ -251,6 +251,8 @@ export const enA = {
   "settings.person.egn": "EGN",
   "settings.country": "Country",
   "settings.vat_branch": "VAT branch",
+  "settings.vat_purchase_goods": "Purchase description (VAT journal)",
+  "settings.vat_sales_goods": "Sales description (VAT journal)",
   "settings.mistral_key": "Mistral AI API key",
   "settings.mistral_hint": "Per company. EU operator: financial data is not exported to third countries. VIES and address to SAF-T, invoice scan (OCR 4.1 + Small 4).",
   "settings.zhipu_key": "Zhipu AI (GLM-OCR) API key",

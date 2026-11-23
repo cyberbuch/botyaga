@@ -169,6 +169,7 @@ defmodule Botyaga.Vat do
   defp register(acc, company_id, co, period, entry, kind) do
     {cells, purchases, sales, pok, pro, vies_map} = acc
     ln = one_line(company_id, entry, kind)
+    ln = fill_goods(ln, co, kind)
     branch = branch_of(co.branch)
 
     if kind == "purchase" do
@@ -192,6 +193,16 @@ defmodule Botyaga.Vat do
   defp branch_of(raw) do
     t = String.trim(raw || "")
     if t == "", do: "0", else: t
+  end
+
+  # „Вид на стоката/услугата“ не трябва да е празно за НАП. При липса на
+  # описание се ползва категорията по подразбиране на фирмата (покупки/продажби).
+  defp fill_goods(ln, co, kind) do
+    if String.trim(ln.goods || "") == "" do
+      Map.put(ln, :goods, if(kind == "purchase", do: co.purchase_goods, else: co.sales_goods))
+    else
+      ln
+    end
   end
 
   defp accumulate_vies(vies_map, ln) do
@@ -246,6 +257,8 @@ defmodule Botyaga.Vat do
           company.manager_name
         ),
       branch: company.vat_branch_number || "",
+      purchase_goods: Companies.vat_goods_label(company.vat_purchase_goods),
+      sales_goods: Companies.vat_goods_label(company.vat_sales_goods),
       street:
         street_of(company.street_name, company.building_number, company.additional_address_detail),
       city: company.city || "",
