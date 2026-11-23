@@ -62,17 +62,43 @@ services:
       retries: 12
       start_period: 40s
 
+  # Изолиран микросървиз за шофьори/пътни листове и командировки. Същата JWT
+  # автентификация като botyaga (тайната се чете от настройките на botyaga).
+  transport:
+    build:
+      context: ../transport
+    container_name: botyaga-transport
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ecto://${BOTYAGA_DB_USER:-postgres}:${BOTYAGA_DB_PASSWORD:-postgres}@postgres:5432/${TRANSPORT_DB_NAME:-transport_dev}
+      BOTYAGA_DATABASE_URL: ecto://${BOTYAGA_DB_USER:-postgres}:${BOTYAGA_DB_PASSWORD:-postgres}@postgres:5432/${BOTYAGA_DB_NAME:-botyaga_dev}
+      BOTYAGA_JWT_SECRET: ${BOTYAGA_JWT_SECRET:-}
+      PORT: 8096
+    ports:
+      - "8096:8096"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8096/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
   frontend:
     build:
       context: ../frontend
       args:
         BOTYAGA_API_PROXY: http://backend:8093
+        TRANSPORT_API_PROXY: http://transport:8096
     container_name: botyaga-frontend
     restart: unless-stopped
     environment:
       HOSTNAME: 0.0.0.0
       PORT: 3021
       NEXT_TELEMETRY_DISABLED: "1"
+      TRANSPORT_API_PROXY: http://transport:8096
     ports:
       - "3021:3021"
     depends_on:

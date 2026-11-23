@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const BACKEND = process.env.BOTYAGA_API_PROXY ?? "http://127.0.0.1:8093";
+const TRANSPORT = process.env.TRANSPORT_API_PROXY ?? "http://127.0.0.1:8096";
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -42,6 +43,7 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: "/v1/:path*", destination: `${BACKEND}/v1/:path*` },
+      { source: "/transport/v1/:path*", destination: `${TRANSPORT}/v1/:path*` },
       { source: "/ready", destination: `${BACKEND}/ready` },
       { source: "/health", destination: `${BACKEND}/health` },
     ];

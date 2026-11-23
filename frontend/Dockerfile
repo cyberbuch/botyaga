@@ -10,7 +10,9 @@ WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 ARG BOTYAGA_API_PROXY=http://backend:8093
+ARG TRANSPORT_API_PROXY=http://transport:8096
 ENV BOTYAGA_API_PROXY=$BOTYAGA_API_PROXY \
+    TRANSPORT_API_PROXY=$TRANSPORT_API_PROXY \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState, FormEvent } from "react";
 import { api, fetchAll } from "../lib/api";
+import { transport, transportFetchAll } from "../lib/transport";
 import { useI18n } from "./I18nProvider";
 import { IconButton } from "./IconButton";
 import { Pagination } from "./Pagination";
@@ -99,8 +100,10 @@ function cellText(rec: Record_, field: FieldDef, t: (k: string) => string): stri
   return String(v);
 }
 
-export function CrudPage({ config }: { config: CrudConfig }) {
+export function CrudPage({ config, transport: useTransport }: { config: CrudConfig; transport?: boolean }) {
   const { t } = useI18n();
+  const client = useTransport ? transport : api;
+  const loadAll = useTransport ? transportFetchAll : fetchAll;
   const [rows, setRows] = useState<Record_[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -121,13 +124,13 @@ export function CrudPage({ config }: { config: CrudConfig }) {
     setLoading(true);
     setError("");
     try {
-      setRows(await fetchAll<Record_>(config.endpoint));
+      setRows(await loadAll<Record_>(config.endpoint));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
-  }, [config.endpoint]);
+  }, [config.endpoint, loadAll]);
 
   useEffect(() => {
     // Зареждане при монтиране (данните зависят от автентикацията, четат се от
@@ -291,9 +294,9 @@ export function CrudPage({ config }: { config: CrudConfig }) {
     try {
       const payload = buildPayload();
       if (editing) {
-        await api.patch(`${config.endpoint}/${editing.id}`, payload);
+        await client.patch(`${config.endpoint}/${editing.id}`, payload);
       } else {
-        await api.post(config.endpoint, payload);
+        await client.post(config.endpoint, payload);
       }
       setModalOpen(false);
       await load();
@@ -307,7 +310,7 @@ export function CrudPage({ config }: { config: CrudConfig }) {
   const handleDelete = async (rec: Record_) => {
     if (!window.confirm(t("common.confirmDelete"))) return;
     try {
-      await api.del(`${config.endpoint}/${rec.id}`);
+      await client.del(`${config.endpoint}/${rec.id}`);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
