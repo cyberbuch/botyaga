@@ -96,7 +96,6 @@ export function ScanDraft(props: {
     setInitial({
       ...emptyProductForm,
       name: scannedName,
-      description: line?.description || scannedName,
       unit: line?.unit || "C62",
       price: direction === "out" ? line?.unit_price || "0" : "0",
       cost_price: direction === "in" ? line?.unit_price || "0" : "0",
