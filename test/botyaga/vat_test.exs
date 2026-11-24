@@ -21,8 +21,11 @@ defmodule Botyaga.VatTest do
     test "идентификация на контрагент" do
       assert Fmt.cp_ident("BG123456789", "123456789") == "BG123456789"
       assert Fmt.cp_ident("", "201559838") == "201559838"
-      assert Fmt.cp_ident("", "999999999") == "999999999"
-      assert Fmt.cp_ident("", "") == "999999999"
+      assert Fmt.cp_ident("", "999999999") == "999999999999999"
+      assert Fmt.cp_ident("", "") == "999999999999999"
+
+      # Контролните знаци стават интервал — редът пази ширината си.
+      assert Fmt.cp1251("а\nб\tв") == <<224, 32, 225, 32, 226>>
     end
 
     test "вид документ и ставки" do
@@ -68,7 +71,26 @@ defmodule Botyaga.VatTest do
       assert ln.s_tv == 0
     end
 
-    test "протокол 117 влиза в двата дневника и се нулира" do
+    test "протокол 117 влиза в двата дневника като дебитно известие" do
+      cells = Line.cells()
+
+      s_proto =
+        Line.empty("sales") |> Map.put(:doc_type, "09") |> Line.add_sale(50_000, 10_000, "20", "")
+
+      p_proto =
+        Line.empty("purchase") |> Map.put(:doc_type, "09") |> Line.add_purch(50_000, 10_000)
+
+      cells = cells |> Line.cells_add(s_proto) |> Line.cells_add(p_proto) |> Line.cells_finish()
+
+      assert Money.money(cells.s11) == "500.00"
+      assert Money.money(cells.s21) == "100.00"
+      assert Money.money(cells.p31) == "500.00"
+      assert Money.money(cells.p41) == "100.00"
+      assert cells.r50 == 0
+      assert cells.r60 == 0
+    end
+
+    test "протокол по чл. 82 отива във ВОП колоните" do
       cells = Line.cells()
 
       s_proto =
@@ -81,10 +103,19 @@ defmodule Botyaga.VatTest do
 
       assert Money.money(cells.s12) == "500.00"
       assert Money.money(cells.s22) == "100.00"
-      assert Money.money(cells.p31) == "500.00"
-      assert Money.money(cells.p41) == "100.00"
       assert cells.r50 == 0
-      assert cells.r60 == 0
+    end
+
+    test "клетка 40 включва частичния кредит по коефициента" do
+      cells =
+        Line.cells()
+        |> Map.put(:p41, 10_000)
+        |> Map.put(:p42, 20_000)
+        |> Map.put(:p43, 500)
+        |> Map.put(:m33, "0.50")
+        |> Line.cells_finish()
+
+      assert cells.r40 == 20_500
     end
   end
 

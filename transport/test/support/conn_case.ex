@@ -33,7 +33,13 @@ defmodule TransportWeb.ConnCase do
 
   setup tags do
     Transport.DataCase.setup_sandbox(tags)
+    start_supervised!(Transport.AccessStub)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
+  end
+
+  @doc "Потребителят на теста става член на фирмата (за проби на чужда фирма)."
+  def grant_company(sub, company_id) do
+    Agent.update(Transport.AccessStub, &MapSet.put(&1, {sub, company_id}))
   end
 
   @doc "Връзка с валиден botyaga JWT (тест тайна) и фирма."
@@ -44,7 +50,7 @@ defmodule TransportWeb.ConnCase do
   end
 
   defp issue_token(sub) do
-    secret = Transport.Auth.secret()
+    {:ok, secret} = Transport.Auth.secret()
     now = System.system_time(:second)
     header = %{"alg" => "HS256", "typ" => "JWT"}
 

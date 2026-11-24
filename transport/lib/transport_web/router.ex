@@ -4,6 +4,7 @@ defmodule TransportWeb.Router do
   pipeline :api do
     plug :accepts, ["json"]
     plug TransportWeb.Plugs.Auth
+    plug TransportWeb.Plugs.Scope
   end
 
   scope "/", TransportWeb do

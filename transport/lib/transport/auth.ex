@@ -1,69 +1,34 @@
 defmodule Transport.Auth do
   @moduledoc """
-  Споделена автентификация с botyaga: валидира същия HS256 JWT (издател `botyaga`).
+  Споделена автентикация с botyaga: валидира същия HS256 JWT (издател `botyaga`).
   Тайната идва от `BOTYAGA_JWT_SECRET`, или от настройките на botyaga (`auth.jwt_secret`),
   за да работи един вход без допълнителна конфигурация.
   """
 
   @iss "botyaga"
 
+  # env → config → базата на botyaga. Празна тайна не е тайна: с нея не се подписва.
   def secret do
     case System.get_env("BOTYAGA_JWT_SECRET") do
-      s when is_binary(s) and s != "" -> s
-      _ -> Application.get_env(:transport, :jwt_secret) || botyaga_secret()
+      s when is_binary(s) and s != "" -> {:ok, s}
+      _ -> configured(Application.get_env(:transport, :jwt_secret))
     end
   end
 
-  defp botyaga_secret do
-    case :persistent_term.get({__MODULE__, :secret}, nil) do
-      nil ->
-        value = fetch_botyaga_secret()
-        :persistent_term.put({__MODULE__, :secret}, value)
-        value
+  defp configured(s) when is_binary(s) and s != "", do: {:ok, s}
+  defp configured(_), do: Transport.Botyaga.secret()
 
-      value ->
-        value
-    end
-  end
-
-  defp fetch_botyaga_secret do
-    url =
-      Application.get_env(:transport, :botyaga_database_url) ||
-        "ecto://postgres:postgres@localhost:5433/botyaga_dev"
-
-    {:ok, pid} = Postgrex.start_link(pg_opts(url))
-
-    try do
-      case Postgrex.query!(
-             pid,
-             "SELECT value FROM settings WHERE setting_key = 'auth.jwt_secret'",
-             []
-           ) do
-        %{rows: [[value]]} when is_binary(value) and value != "" -> value
-        _ -> ""
-      end
-    after
-      GenServer.stop(pid)
-    end
-  end
-
-  defp pg_opts(url) do
-    uri = URI.parse(url)
-    [user, pass] = String.split(uri.userinfo || "postgres:postgres", ":", parts: 2)
-
-    [
-      hostname: uri.host || "localhost",
-      port: uri.port || 5432,
-      username: user,
-      password: pass,
-      database: String.trim_leading(uri.path || "/botyaga_dev", "/")
-    ]
-  end
-
-  @doc "Връща `{:ok, claims}` само за валиден подпис, издател и срок."
+  @doc "`{:ok, claims}`, `:error`, или `{:error, :unavailable}` когато няма откъде тайна."
   def decode(token) when is_binary(token) do
-    secret = secret()
+    case secret() do
+      {:ok, secret} -> verify(token, secret)
+      {:error, _} -> {:error, :unavailable}
+    end
+  end
 
+  def decode(_token), do: :error
+
+  defp verify(token, secret) do
     case String.split(token, ".") do
       [header_b64, payload_b64, signature] ->
         with {:ok, header} <- segment_json(header_b64),
@@ -79,8 +44,6 @@ defmodule Transport.Auth do
         :error
     end
   end
-
-  def decode(_token), do: :error
 
   defp build_claims(payload) do
     claims = %{

@@ -255,6 +255,58 @@ defmodule BotyagaWeb.VatTest do
     body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
     assert Enum.any?(body["purchases"], &(&1["goods"] == "Актив"))
     assert Enum.any?(body["sales"], &(&1["goods"] == "Услуга"))
+
+    # Ръчните записи носят валиден вид документ за НАП, не „ma“.
+    assert Enum.all?(body["purchases"] ++ body["sales"], &(&1["document_type"] == "01"))
+  end
+
+  test "невалиден vat_period се отказва, а не изчезва от регистрите", %{
+    conn: conn,
+    by_number: by_number
+  } do
+    conn =
+      post(conn, "/v1/journal", %{
+        "entry_date" => "2026-11-20",
+        "description" => "Покупка",
+        "vat_type" => "purchase",
+        "vat_period" => "11/2026",
+        "lines" => [
+          %{
+            "account_id" => by_number["302"],
+            "direction" => "debit",
+            "amount" => "100.00",
+            "vat_amount" => "20.00"
+          },
+          %{
+            "account_id" => by_number["4531"],
+            "direction" => "debit",
+            "amount" => "20.00",
+            "vat_amount" => "0"
+          },
+          %{
+            "account_id" => by_number["401"],
+            "direction" => "credit",
+            "amount" => "120.00",
+            "vat_amount" => "0"
+          }
+        ]
+      })
+
+    assert json_response(conn, 422)["detail"] =~ "ГГГГ-ММ"
+  end
+
+  test "без ЕГН и име на подаващия регистрите отказват", %{conn: conn, company: company} do
+    patch(conn, "/v1/companies/#{company.id}", %{
+      "accountant_egn" => "",
+      "accountant_name" => "",
+      "manager_egn" => "",
+      "manager_name" => "",
+      "authorized_person_egn" => "",
+      "authorized_person_name" => ""
+    })
+
+    conn = get(conn, "/v1/vat/registers?period=2026-11")
+    assert json_response(conn, 422)["detail"] =~ "ЕГН"
   end
 
   test "декларацията се подписва с избраното лице", %{conn: conn, company: company} do

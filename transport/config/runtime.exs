@@ -24,10 +24,16 @@ config :transport, TransportWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "8096"))]
 
 # Споделена JWT тайна: env или настройките на botyaga (същата PostgreSQL инсталация).
-config :transport,
-  botyaga_database_url:
-    System.get_env("BOTYAGA_DATABASE_URL") ||
+# В production базата на botyaga е задължителна — без нея никой не минава.
+botyaga_database_url =
+  System.get_env("BOTYAGA_DATABASE_URL") ||
+    if config_env() == :prod do
+      raise "environment variable BOTYAGA_DATABASE_URL is missing (базата на botyaga за JWT тайната и членствата)."
+    else
       "ecto://postgres:postgres@localhost:5433/botyaga_dev"
+    end
+
+config :transport, :botyaga_database_url, botyaga_database_url
 
 if config_env() == :prod do
   database_url =

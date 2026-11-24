@@ -46,8 +46,10 @@ defmodule TransportWeb.WaybillController do
         Respond.error(conn, {404, "пътният лист не е намерен"})
 
       w ->
-        Waybills.delete(w)
-        Respond.ok(conn, %{ok: true})
+        case Waybills.delete(w) do
+          {:ok, _} -> Respond.ok(conn, %{ok: true})
+          error -> Respond.error(conn, error)
+        end
     end
   end
 

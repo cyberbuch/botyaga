@@ -13,6 +13,7 @@ export const enA = {
   "common.actions": "Actions",
   "common.loading": "Loading…",
   "common.empty": "No records",
+  "common.invalid_number": "invalid number (use digits, e.g. 12.50)",
   "common.error": "Error",
   "common.super_only": "Super administrators only",
   "common.confirmDelete": "Are you sure you want to delete this record?",

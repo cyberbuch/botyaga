@@ -81,9 +81,12 @@ defmodule BotyagaWeb.CompaniesController do
   end
 
   def settings(conn, %{"id" => id}) do
-    case Companies.fetch_accessible(conn.assigns.current_user, id) do
+    case Companies.fetch_editable(conn.assigns.current_user, id) do
       {:error, :not_found} ->
         Respond.error(conn, {404, "фирмата не е намерена"})
+
+      {:error, {status, detail}} ->
+        Respond.error(conn, {status, detail})
 
       {:ok, _company} ->
         data = Companies.company_settings(to_integer(id))

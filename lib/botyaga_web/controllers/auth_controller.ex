@@ -104,18 +104,19 @@ defmodule BotyagaWeb.AuthController do
         if claims["mfa"] != 1 or claims["sub"] == "" do
           Respond.error(conn, {401, "изтекъл или невалиден 2FA токен"})
         else
-          verify_mfa_user(conn, secret, claims["sub"], code)
+          verify_mfa_user(conn, secret, claims, code)
         end
     end
   end
 
-  defp verify_mfa_user(conn, _secret, sub, _code) when sub == "",
+  defp verify_mfa_user(conn, _secret, %{"sub" => sub}, _code) when sub == "",
     do: Respond.error(conn, {401, "изтекъл или невалиден 2FA токен"})
 
-  defp verify_mfa_user(conn, secret, sub, code) do
-    user = Accounts.get_by_login(sub)
+  defp verify_mfa_user(conn, secret, claims, code) do
+    user = Accounts.get_by_login(claims["sub"])
 
-    if user == nil do
+    # Отнета сесия или спрян потребител не довършва 2FA със стария токен.
+    if user == nil or user.is_active != 1 or user.session_version != claims["ver"] do
       Respond.error(conn, {401, "грешен код"})
     else
       now = System.system_time(:second)
@@ -166,14 +167,18 @@ defmodule BotyagaWeb.AuthController do
     token = bearer(conn)
 
     case Accounts.JWT.decode(secret, token) do
-      {:ok, %{"sub" => sub}} when sub != "" ->
+      {:ok, %{"sub" => sub} = claims} when sub != "" ->
         case Accounts.get_by_login(sub) do
           nil ->
             Respond.ok(conn, %{ok: true})
 
           user ->
-            Accounts.bump_version(user.id)
-            LoginLog.record(conn, "logout", user.username, user.id)
+            # Само текуща потребителска сесия излиза; стар токен не изхвърля живия потребител.
+            if claims["mfa"] != 1 and claims["ver"] == user.session_version do
+              Accounts.bump_version(user.id)
+              LoginLog.record(conn, "logout", user.username, user.id)
+            end
+
             Respond.ok(conn, %{ok: true})
         end
 

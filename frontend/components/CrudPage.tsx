@@ -141,7 +141,7 @@ export function CrudPage({ config, transport: useTransport }: { config: CrudConf
   const openCreate = () => {
     const initial: Record<string, string | boolean> = {};
     for (const f of config.fields) {
-      if (f.type === "checkbox") initial[f.name] = false;
+      if (f.type === "checkbox") initial[f.name] = f.default === "1";
       else initial[f.name] = f.default ?? "";
     }
     setForm(initial);
@@ -278,7 +278,10 @@ export function CrudPage({ config, transport: useTransport }: { config: CrudConf
             payload[f.name] = Number(f.default);
           }
         } else {
-          payload[f.name] = Number(raw);
+          // Българският вход е с десетична запетая.
+          const n = Number(raw.replace(",", "."));
+          if (!Number.isFinite(n)) throw new Error(`${t(f.labelKey)}: ${t("common.invalid_number")}`);
+          payload[f.name] = n;
         }
       } else {
         payload[f.name] = v ?? "";

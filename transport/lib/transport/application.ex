@@ -10,10 +10,9 @@ defmodule Transport.Application do
     children = [
       TransportWeb.Telemetry,
       Transport.Repo,
+      Transport.Botyaga,
       {DNSCluster, query: Application.get_env(:transport, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Transport.PubSub},
-      # Start a worker by calling: Transport.Worker.start_link(arg)
-      # {Transport.Worker, arg},
       # Start to serve requests, typically the last entry
       TransportWeb.Endpoint
     ]

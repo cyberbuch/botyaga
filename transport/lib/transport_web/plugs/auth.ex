@@ -1,16 +1,20 @@
 defmodule TransportWeb.Plugs.Auth do
-  @moduledoc "Иска валиден botyaga JWT; слага `current_sub` в assigns."
+  @moduledoc "Иска валиден botyaga JWT; слага `current_sub` и `current_ver` в assigns."
 
   import Plug.Conn
 
   def init(opts), do: opts
 
   def call(conn, _opts) do
-    token = bearer(conn)
+    case Transport.Auth.decode(bearer(conn)) do
+      {:ok, %{"sub" => sub, "ver" => ver}} ->
+        conn |> assign(:current_sub, sub) |> assign(:current_ver, ver)
 
-    case Transport.Auth.decode(token) do
-      {:ok, %{"sub" => sub}} -> assign(conn, :current_sub, sub)
-      _ -> halt_error(conn, 401, "невалиден или липсващ токен")
+      {:error, :unavailable} ->
+        halt(conn, 503, "автентикацията е временно недостъпна")
+
+      _ ->
+        halt(conn, 401, "невалиден или изтекъл токен")
     end
   end
 
@@ -28,7 +32,7 @@ defmodule TransportWeb.Plugs.Auth do
     end
   end
 
-  defp halt_error(conn, status, detail) do
+  def halt(conn, status, detail) do
     conn
     |> put_resp_content_type("application/json")
     |> send_resp(status, Jason.encode!(%{detail: detail}))

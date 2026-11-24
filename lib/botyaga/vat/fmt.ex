@@ -37,6 +37,9 @@ defmodule Botyaga.Vat.Fmt do
   def doc_type("credit_note"), do: "03"
   def doc_type("proforma"), do: "01"
 
+  # Ръчна статия без изричен код: НАП иска валиден вид документ, не „ma“.
+  def doc_type("manual"), do: "01"
+
   def doc_type(t) do
     cond do
       String.length(t) == 1 and String.match?(t, ~r/^[0-9]$/) -> "0#{t}"
@@ -95,7 +98,9 @@ defmodule Botyaga.Vat.Fmt do
       v
     else
       e = eik |> to_string() |> String.trim() |> String.upcase()
-      if e != "", do: e, else: "999999999"
+
+      # 9 деветки са ЕИК-заглушка, не ДДС идентификатор: spec (ДВ 59/2022) иска 15.
+      if e != "" and e != "999999999", do: e, else: "999999999999999"
     end
   end
 
@@ -105,6 +110,8 @@ defmodule Botyaga.Vat.Fmt do
     |> String.to_charlist()
     |> Enum.map(fn u ->
       cond do
+        # Контролните знаци чупят фиксираната ширина на реда.
+        u < 0x20 or u == 0x7F -> 32
         u < 128 -> u
         u in 0x0410..0x044F -> u - 848
         true -> Map.get(cp1251_special(), u, 63)

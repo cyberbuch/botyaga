@@ -9,9 +9,10 @@ defmodule Botyaga.Accounts.LoginLog do
 
   @doc "Записва събитие. `conn` носи IP-то и user-agent-а на клиента."
   def record(conn, event, user_login, user_id \\ 0, detail \\ "") do
-    Repo.insert!(%LoginEvent{
+    # Логът не бива да събаря входа: дълъг вход се отрязва, грешката при запис се преглъща.
+    Repo.insert(%LoginEvent{
       user_id: user_id,
-      user_login: user_login || "",
+      user_login: (user_login || "") |> to_string() |> String.slice(0, 255),
       event: event,
       ip: ClientKey.client_ip(conn),
       user_agent: user_agent(conn),

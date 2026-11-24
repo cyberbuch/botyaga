@@ -38,7 +38,7 @@ interface Waybill {
   total_refuel: string;
   norm_consumption: string;
   expected_end_fuel: string;
-  expected_end_odometer: number;
+  expected_end_odometer: number | string;
   rows: Row[];
   note: string;
 }
@@ -62,6 +62,7 @@ function WaybillsInner() {
   const [formError, setFormError] = useState("");
   const [closing, setClosing] = useState<Waybill | null>(null);
   const [closeForm, setCloseForm] = useState({ end_odometer: "", end_fuel: "" });
+  const [closeError, setCloseError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,21 +126,28 @@ function WaybillsInner() {
   };
 
   const openClose = async (w: Waybill) => {
-    const full = await transport.get<Waybill>(`/waybills/${w.id}`);
-    setCloseForm({ end_odometer: String(full.expected_end_odometer), end_fuel: full.expected_end_fuel });
-    setClosing(full);
+    setError("");
+    try {
+      const full = await transport.get<Waybill>(`/waybills/${w.id}`);
+      setCloseForm({ end_odometer: String(full.expected_end_odometer), end_fuel: full.expected_end_fuel });
+      setCloseError("");
+      setClosing(full);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
   };
 
   const doClose = async (e: FormEvent) => {
     e.preventDefault();
     if (!closing) return;
     setSaving(true);
+    setCloseError("");
     try {
       await transport.post(`/waybills/${closing.id}/close`, closeForm);
       setClosing(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setCloseError(err instanceof Error ? err.message : String(err));
     } finally {
       setSaving(false);
     }
@@ -204,7 +212,9 @@ function WaybillsInner() {
                           <button className="btn btn-sm" onClick={() => void openClose(w)}>{t("transport.close")}</button>
                         </>
                       )}
-                      <IconButton icon="delete" title={t("common.delete")} danger onClick={() => void del(w)} />
+                      {w.status !== "closed" && (
+                        <IconButton icon="delete" title={t("common.delete")} danger onClick={() => void del(w)} />
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -326,6 +336,7 @@ function WaybillsInner() {
                 </div>
               </div>
               <p className="muted">{t("transport.close_hint")}</p>
+              {closeError && <div className="error-text">{closeError}</div>}
               <div className="form-actions">
                 <button type="button" className="btn" onClick={() => setClosing(null)}>{t("common.cancel")}</button>
                 <button className="btn btn-primary" disabled={saving}>{t("common.save")}</button>

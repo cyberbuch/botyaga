@@ -6,8 +6,10 @@ defmodule Transport.Destinations do
 
   import Ecto.Query
   import Transport.Params
-  alias Transport.Repo
+  alias Transport.{Dec, Repo}
   alias Transport.Destinations.Destination
+
+  @fields ~w(country city kind per_diem per_diem_no_overnight lodging_limit)a
 
   def list(kind \\ nil) do
     query = from(d in Destination, order_by: [asc: d.kind, asc: d.country, asc: d.city])
@@ -17,34 +19,38 @@ defmodule Transport.Destinations do
 
   def get(id), do: Repo.get(Destination, id)
 
-  def create(params) do
-    with {:ok, country} <- required(params, "country") do
-      %Destination{} |> Ecto.Changeset.change(attrs(params, country)) |> Repo.insert() |> ok()
-    end
-  end
+  def create(params), do: write(%Destination{}, params)
 
   def update(%Destination{} = d, params) do
-    with {:ok, country} <-
-           required(%{"country" => Map.get(params, "country", d.country)}, "country") do
-      d |> Ecto.Changeset.change(attrs(params, country)) |> Repo.update() |> ok()
-    end
+    current = d |> current(@fields) |> Map.put("active", d.active)
+    write(d, merge(current, params))
   end
 
-  def delete(%Destination{} = d), do: Repo.delete(d)
+  # Изтриването оставя командировките без дестинация — затова се отказва.
+  def delete(%Destination{} = d) do
+    if Repo.exists?(from(t in Transport.Trips.Trip, where: t.destination_id == ^d.id)),
+      do: {:error, {422, "дестинацията има командировки и не може да се изтрие"}},
+      else: Repo.delete(d) |> ok()
+  end
 
-  defp attrs(params, country) do
-    kind = str(params, "kind")
-    kind = if kind in ["domestic", "abroad"], do: kind, else: "abroad"
+  defp write(%Destination{} = d, params) do
+    with {:ok, country} <- required(params, "country"),
+         :ok <- numeric(params, ["per_diem", "per_diem_no_overnight", "lodging_limit"]) do
+      kind = str(params, "kind")
+      kind = if kind in ["domestic", "abroad"], do: kind, else: "abroad"
 
-    %{
-      country: country,
-      city: str(params, "city"),
-      kind: kind,
-      per_diem: str(params, "per_diem") |> default("0"),
-      per_diem_no_overnight: str(params, "per_diem_no_overnight") |> default("0"),
-      lodging_limit: str(params, "lodging_limit") |> default("0"),
-      active: flag(params, "active", 1)
-    }
+      %{
+        country: country,
+        city: str(params, "city"),
+        kind: kind,
+        per_diem: Dec.canon(default(str(params, "per_diem"), "0")),
+        per_diem_no_overnight: Dec.canon(default(str(params, "per_diem_no_overnight"), "0")),
+        lodging_limit: Dec.canon(default(str(params, "lodging_limit"), "0")),
+        active: flag(params, "active", 1)
+      }
+      |> then(&Ecto.Changeset.change(d, &1))
+      |> save()
+    end
   end
 
   defp default("", value), do: value

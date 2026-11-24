@@ -128,7 +128,8 @@ defmodule Botyaga.Vat.Files do
     end
   end
 
-  defp present?(egn, name), do: String.trim(egn || "") != "" or String.trim(name || "") != ""
+  # spec 00-04 / VDR: и ЕГН, и име са задължителни за подаващия.
+  defp present?(egn, name), do: String.trim(egn || "") != "" and String.trim(name || "") != ""
 
   def deklar(vat, name, period, submitter, c) do
     coef = if String.trim(c.m33) == "", do: "0.00", else: c.m33
@@ -182,7 +183,7 @@ defmodule Botyaga.Vat.Files do
         Fmt.sym(head.decl_egn, 15) <>
         Fmt.sym(head.decl_name, 150) <>
         Fmt.sym(head.decl_city, 50) <>
-        Fmt.sym(head.decl_post, 4) <>
+        Fmt.num_str(head.decl_post, 4) <>
         Fmt.sym(head.decl_street, 150) <>
         Fmt.sym(head.quality, 1) <>
         crlf() <>

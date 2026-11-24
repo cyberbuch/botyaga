@@ -247,20 +247,26 @@ defmodule Botyaga.Access do
         is_super = Params.flag(params, "is_super_admin") || 0
         memberships = parse_memberships(params)
 
-        with :ok <- check_memberships(is_super, memberships) do
-          user =
-            Accounts.create_user(
-              email,
-              name,
-              password,
-              string_or(params, "role", "user"),
-              is_active: Params.flag(params, "is_active") || 1,
-              is_super_admin: is_super,
-              role_id: Params.integer(params, "role_id") || 0
-            )
-            |> elem(1)
+        with :ok <- check_memberships(is_super, memberships),
+             :ok <- check_flags(params) do
+          {:ok, user} =
+            Repo.transaction(fn ->
+              user =
+                Accounts.create_user(
+                  email,
+                  name,
+                  password,
+                  string_or(params, "role", "user"),
+                  is_active: Params.flag(params, "is_active") || 1,
+                  is_super_admin: is_super,
+                  role_id: Params.integer(params, "role_id") || 0
+                )
+                |> elem(1)
 
-          sync_memberships(user.id, memberships, is_super)
+              sync_memberships(user.id, memberships, is_super)
+              user
+            end)
+
           {:ok, user}
         end
       end
@@ -277,7 +283,8 @@ defmodule Botyaga.Access do
     with :ok <- check_email_change(user, email, password),
          :ok <- check_password_length(password),
          :ok <- check_last_super_admin(user, params),
-         :ok <- check_memberships(next_super, memberships) do
+         :ok <- check_memberships(next_super, memberships),
+         :ok <- check_flags(params) do
       Repo.transaction(fn ->
         changes = %{
           name: optional_string(params, "name") || user.name,
@@ -302,6 +309,14 @@ defmodule Botyaga.Access do
       end)
 
       {:ok, Repo.get(Accounts.User, user.id)}
+    end
+  end
+
+  # Невалидна стойност на флаг е 422, а не грешка при записа.
+  defp check_flags(params) do
+    case Enum.find(["is_active", "is_super_admin"], &match?({:error, _}, Params.flag(params, &1))) do
+      nil -> :ok
+      key -> {:error, {422, elem(Params.flag(params, key), 1)}}
     end
   end
 

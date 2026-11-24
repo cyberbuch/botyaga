@@ -263,7 +263,8 @@ export function InvoiceFormHeader({
               value={vatArticle || "чл. 117"}
               onChange={(e) => setVatArticle(e.target.value)}
             >
-              <option value="чл. 117">чл. 117 от ЗДДС (ВОП / чл. 82, ал. 2)</option>
+              <option value="чл. 117">чл. 117 от ЗДДС (увеличение/намаление на основа)</option>
+              <option value="чл. 82">чл. 82, ал. 2 от ЗДДС (ВОП на услуги — самоначисляване)</option>
               <option value="чл. 163а">чл. 163а от ЗДДС (обратно начисляване)</option>
               <option value="чл. 151в">чл. 151в от ЗДДС</option>
             </select>

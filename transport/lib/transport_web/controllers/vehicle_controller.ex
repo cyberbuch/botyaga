@@ -42,8 +42,10 @@ defmodule TransportWeb.VehicleController do
         Respond.error(conn, {404, "автомобилът не е намерен"})
 
       v ->
-        Vehicles.delete(v)
-        Respond.ok(conn, %{ok: true})
+        case Vehicles.delete(v) do
+          {:ok, _} -> Respond.ok(conn, %{ok: true})
+          error -> Respond.error(conn, error)
+        end
     end
   end
 end

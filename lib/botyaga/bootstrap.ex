@@ -27,15 +27,15 @@ defmodule Botyaga.Bootstrap do
 
     password = System.get_env("BOTYAGA_SUPERADMIN_PASSWORD")
 
-    password =
+    {password, generated?} =
       case password do
-        nil -> generate_password()
-        "" -> generate_password()
-        password -> password
+        nil -> {generate_password(), true}
+        "" -> {generate_password(), true}
+        password -> {password, false}
       end
 
     case Accounts.provision_superadmin(password) do
-      {:ok, %Accounts.User{}} ->
+      {:ok, %Accounts.User{}} when generated? ->
         Logger.warning(
           "Създаден е superadmin с еднократна парола: #{password} — смени я веднага от Профил. " <>
             "За парола по твой избор задай BOTYAGA_SUPERADMIN_PASSWORD преди първия старт."

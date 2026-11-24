@@ -238,7 +238,9 @@ defmodule Botyaga.Vat.Line do
   end
 
   def cells_finish(cells) do
-    r40 = cells.p41 + cells.p43
+    # spec: кл. 40 = кл. 41 + кл. 42 × кл. 33 + кл. 43 (частичен данъчен кредит).
+    coef = (Money.cents(cells.m33) || 0) / 100
+    r40 = cells.p41 + round(cells.p42 * coef) + cells.p43
     diff = cells.s20 - r40
 
     if diff < 0 do

@@ -3,8 +3,7 @@
 set -e
 
 export SECRET_KEY_BASE="${SECRET_KEY_BASE:-$(openssl rand -hex 32)}"
-export DATABASE_URL="${DATABASE_URL:-ecto://postgres:postgres@postgres:5432/transport_dev}"
-export BOTYAGA_DATABASE_URL="${BOTYAGA_DATABASE_URL:-ecto://postgres:postgres@postgres:5432/botyaga_dev}"
+# DATABASE_URL и BOTYAGA_DATABASE_URL са задължителни — без тях release-ът не стартира.
 export PHX_SERVER=true
 
 echo "Миграции..."

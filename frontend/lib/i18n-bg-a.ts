@@ -14,6 +14,7 @@ export const bgA = {
   "common.actions": "Действия",
   "common.loading": "Зареждане…",
   "common.empty": "Няма записи",
+  "common.invalid_number": "невалидно число (използвайте цифри, напр. 12.50)",
   "common.error": "Грешка",
   "common.super_only": "Само за супер администратор",
   "common.confirmDelete": "Сигурни ли сте, че искате да изтриете записа?",

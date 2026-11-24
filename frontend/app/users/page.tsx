@@ -163,7 +163,12 @@ function UsersInner() {
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const memberships = form.memberships.filter((m) => m.company_id > 0 && m.role_id > 0);
+    // Недовършен ред не се прескача тихо — потребителят го вижда в матрицата.
+    if (form.memberships.some((m) => m.company_id === 0 || m.role_id === 0)) {
+      setFormError(t("users.membership_incomplete"));
+      return;
+    }
+    const memberships = form.memberships;
     if (!form.is_super_admin && memberships.length === 0) {
       setFormError(t("users.need_company"));
       return;
@@ -231,7 +236,11 @@ function UsersInner() {
     }));
 
   const addMembership = () =>
-    setForm((f) => ({ ...f, memberships: [...f.memberships, { company_id: 0, role_id: 0 }] }));
+    setForm((f) =>
+      f.memberships.some((m) => m.company_id === 0)
+        ? f
+        : { ...f, memberships: [...f.memberships, { company_id: 0, role_id: 0 }] },
+    );
 
   const removeMembership = (i: number) =>
     setForm((f) => ({ ...f, memberships: f.memberships.filter((_, idx) => idx !== i) }));
@@ -575,7 +584,14 @@ function UsersInner() {
                       >
                         <option value={0}>{t("users.pick_company")}</option>
                         {pack.companies.map((c) => (
-                          <option key={c.id} value={c.id}>
+                          <option
+                            key={c.id}
+                            value={c.id}
+                            disabled={
+                              m.company_id !== c.id &&
+                              form.memberships.some((x) => x.company_id === c.id)
+                            }
+                          >
                             {c.name}
                           </option>
                         ))}

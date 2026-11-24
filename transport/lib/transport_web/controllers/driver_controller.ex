@@ -42,8 +42,10 @@ defmodule TransportWeb.DriverController do
         Respond.error(conn, {404, "шофьорът не е намерен"})
 
       d ->
-        Drivers.delete(d)
-        Respond.ok(conn, %{ok: true})
+        case Drivers.delete(d) do
+          {:ok, _} -> Respond.ok(conn, %{ok: true})
+          error -> Respond.error(conn, error)
+        end
     end
   end
 end

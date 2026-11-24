@@ -43,8 +43,10 @@ defmodule TransportWeb.TripController do
   def delete(conn, %{"id" => id}) do
     case fetch(conn, id) do
       {:ok, t} ->
-        Trips.delete(t)
-        Respond.ok(conn, %{ok: true})
+        case Trips.delete(t) do
+          {:ok, _} -> Respond.ok(conn, %{ok: true})
+          error -> Respond.error(conn, error)
+        end
 
       error ->
         Respond.error(conn, error)

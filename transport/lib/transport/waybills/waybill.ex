@@ -14,6 +14,11 @@ defmodule Transport.Waybills.Waybill do
     field :end_fuel, :string, default: ""
     field :status, :string, default: "open"
     field :note, :string, default: ""
+    field :norm, :string, default: ""
+    field :winter_surcharge, :integer, default: 0
+    field :total_km, :string, default: ""
+    field :total_refuel, :string, default: ""
+    field :norm_consumption, :string, default: ""
     timestamps(type: :utc_datetime)
   end
 end

@@ -117,84 +117,86 @@ defmodule Botyaga.Vat do
   defp collect(company_id, period) do
     co = company_info(company_id)
 
-    entries =
-      Repo.all(
-        from(e in Entry, where: e.company_id == ^company_id and e.vat_period == ^period.iso)
-      )
-      |> Enum.sort_by(&{&1.entry_date, &1.id})
+    with :ok <- require_declarant(co) do
+      entries =
+        Repo.all(
+          from(e in Entry, where: e.company_id == ^company_id and e.vat_period == ^period.iso)
+        )
+        |> Enum.sort_by(&{&1.entry_date, &1.id})
 
-    {cells, purchases, sales, pok, pro, vies_map} =
-      Enum.reduce(entries, {VatLine.cells(), [], [], <<>>, <<>>, %{}}, fn entry, acc ->
-        case entry.vat_type do
-          "both" ->
-            acc
-            |> register(company_id, co, period, entry, "purchase")
-            |> register(company_id, co, period, entry, "sales")
+      {cells, purchases, sales, pok, pro, vies_map} =
+        Enum.reduce(entries, {VatLine.cells(), [], [], <<>>, <<>>, %{}}, fn entry, acc ->
+          case entry.vat_type do
+            "both" ->
+              acc
+              |> register(company_id, co, period, entry, "purchase")
+              |> register(company_id, co, period, entry, "sales")
 
-          vt when vt in ["purchase", "sales"] ->
-            register(acc, company_id, co, period, entry, vt)
+            vt when vt in ["purchase", "sales"] ->
+              register(acc, company_id, co, period, entry, vt)
 
-          _ ->
-            acc
-        end
-      end)
+            _ ->
+              acc
+          end
+        end)
 
-    cells = cells |> VatLine.cells_finish() |> load_manual(company_id, period.iso)
+      cells = cells |> VatLine.cells_finish() |> load_manual(company_id, period.iso)
 
-    parties =
-      vies_map
-      |> Enum.filter(fn {_vin, {k3, k4, k5}} -> k3 != 0 or k4 != 0 or k5 != 0 end)
-      |> Enum.map(fn {vin, {k3, k4, k5}} -> %{vin: vin, k3: k3, k4: k4, k5: k5} end)
-      |> Enum.sort_by(& &1.vin)
+      parties =
+        vies_map
+        |> Enum.filter(fn {_vin, {k3, k4, k5}} -> k3 != 0 or k4 != 0 or k5 != 0 end)
+        |> Enum.map(fn {vin, {k3, k4, k5}} -> %{vin: vin, k3: k3, k4: k4, k5: k5} end)
+        |> Enum.sort_by(& &1.vin)
 
-    mm = String.slice(period.nap, 4, 2)
-    yyyy = String.slice(period.nap, 0, 4)
+      mm = String.slice(period.nap, 4, 2)
+      yyyy = String.slice(period.nap, 0, 4)
 
-    vies =
-      Files.vies_txt(
-        %{
-          vat: co.vat,
-          name: co.name,
-          street: co.street,
-          decl_egn: co.decl_egn,
-          decl_name: co.decl_name,
-          decl_city: co.city,
-          decl_post: co.post,
-          decl_street: co.street,
-          quality: co.quality
-        },
-        "#{mm}/#{yyyy}",
-        parties
-      )
+      vies =
+        Files.vies_txt(
+          %{
+            vat: co.vat,
+            name: co.name,
+            street: co.street,
+            decl_egn: co.decl_egn,
+            decl_name: co.decl_name,
+            decl_city: co.city,
+            decl_post: co.post,
+            decl_street: co.street,
+            quality: co.quality
+          },
+          "#{mm}/#{yyyy}",
+          parties
+        )
 
-    vies_rows =
-      Enum.map(parties, fn p ->
-        %{
-          vat_number: p.vin,
-          country: String.slice(p.vin, 0, 2),
-          base_vod: Money.money(p.k3),
-          base_tri: Money.money(p.k4),
-          base_services: Money.money(p.k5),
-          total: Money.money(p.k3 + p.k4 + p.k5)
-        }
-      end)
+      vies_rows =
+        Enum.map(parties, fn p ->
+          %{
+            vat_number: p.vin,
+            country: String.slice(p.vin, 0, 2),
+            base_vod: Money.money(p.k3),
+            base_tri: Money.money(p.k4),
+            base_services: Money.money(p.k5),
+            total: Money.money(p.k3 + p.k4 + p.k5)
+          }
+        end)
 
-    dek = Files.deklar(co.vat, co.name, period.nap, co.submitter, cells)
+      dek = Files.deklar(co.vat, co.name, period.nap, co.submitter, cells)
 
-    body =
-      VatLine.pack_json(
-        period.iso,
-        period.nap,
-        co.name,
-        co.vat,
-        co.submitter,
-        purchases,
-        sales,
-        cells
-      )
-      |> Map.put(:vies, vies_rows)
+      body =
+        VatLine.pack_json(
+          period.iso,
+          period.nap,
+          co.name,
+          co.vat,
+          co.submitter,
+          purchases,
+          sales,
+          cells
+        )
+        |> Map.put(:vies, vies_rows)
 
-    {:ok, %{body: body, pok: pok, pro: pro, dek: dek, vies: vies, period_nap: period.nap}}
+      {:ok, %{body: body, pok: pok, pro: pro, dek: dek, vies: vies, period_nap: period.nap}}
+    end
   end
 
   # Протоколът по чл. 117 е с `vat_type` "both" — същият запис влиза и в
@@ -260,6 +262,14 @@ defmodule Botyaga.Vat do
       String.starts_with?(v, "BG") -> nil
       true -> v
     end
+  end
+
+  # Без ЕГН и име на подаващия DEKLAR/VDR са невалидни — по-добре 422, отколкото празно поле.
+  defp require_declarant(%{decl_egn: egn, decl_name: name}) do
+    if String.trim(egn) != "" and String.trim(name) != "",
+      do: :ok,
+      else:
+        {:error, {422, "подаващият ДДС данните трябва да има ЕГН и име (Настройки на фирмата)"}}
   end
 
   defp company_info(company_id) do
@@ -334,10 +344,10 @@ defmodule Botyaga.Vat do
           end
 
         ln.doc_type == "07" ->
-          Map.put(ln, :cp_vat, "999999999")
+          Map.put(ln, :cp_vat, "999999999999999")
 
         true ->
-          ln
+          Map.put(ln, :cp_vat, "999999999999999")
       end
 
     ln = if entry.document_id > 0, do: overlay(company_id, ln, entry.document_id), else: ln
@@ -374,7 +384,7 @@ defmodule Botyaga.Vat do
             base = if c_stat + c_duty > 0, do: c_stat + c_duty, else: inv_net
             vat = if c_vat > 0, do: c_vat, else: inv_vat
             ln = VatLine.reset_amounts(ln)
-            ln = if ln.cp_vat == "", do: Map.put(ln, :cp_vat, "999999999"), else: ln
+            ln = if ln.cp_vat == "", do: Map.put(ln, :cp_vat, "999999999999999"), else: ln
 
             ln =
               if ln.goods == "",
@@ -396,6 +406,13 @@ defmodule Botyaga.Vat do
     end
   end
 
+  # ВОП колони (02-12/22) са за самоначисляване по чл. 82; протокол по чл. 117
+  # се описва като дебитно/кредитно известие — в обикновените колони (spec, Прил. 12).
+  defp vop_protocol?(inv),
+    do:
+      inv.direction == "in" and inv.document_type == "09" and
+        String.contains?(inv.vat_article || "", "82")
+
   defp overlay_lines(ln, inv, inv_net, inv_vat) do
     lines = Invoicing.lines_of(inv.id)
     ex = inv.vat_exemption_reason || ""
@@ -404,7 +421,7 @@ defmodule Botyaga.Vat do
       if inv.direction == "in" and inv.document_type == "09" do
         ln = VatLine.reset_amounts(ln)
 
-        if ln.kind == "sales",
+        if ln.kind == "sales" and vop_protocol?(inv),
           do: VatLine.add_vop_sale(ln, inv_net, inv_vat),
           else: VatLine.add_purch(ln, inv_net, inv_vat)
       else
@@ -429,7 +446,7 @@ defmodule Botyaga.Vat do
         rate = Fmt.rate_kind(line.vat_rate)
 
         cond do
-          acc.kind == "sales" and inv.direction == "in" and inv.document_type == "09" ->
+          acc.kind == "sales" and vop_protocol?(inv) ->
             VatLine.add_vop_sale(acc, base, vat)
 
           acc.kind == "sales" ->

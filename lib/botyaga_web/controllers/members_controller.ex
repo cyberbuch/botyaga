@@ -42,7 +42,8 @@ defmodule BotyagaWeb.MembersController do
   def remove(conn, %{"id" => company_id, "user_id" => user_id}) do
     with {:ok, company_id} <- scope(conn, company_id),
          :ok <- not_self(conn, to_integer(user_id)),
-         {:ok, user_id} <- existing_membership(company_id, user_id) do
+         {:ok, user_id} <- existing_membership(company_id, user_id),
+         :ok <- not_last_membership(user_id) do
       Access.revoke(user_id, company_id)
       Respond.no_content(conn)
     else
@@ -51,6 +52,15 @@ defmodule BotyagaWeb.MembersController do
   end
 
   ## Вътрешни
+
+  # Без последната фирма потребителят остава без достъп до нищо — отказва се.
+  defp not_last_membership(user_id) do
+    user = Repo.get(Accounts.User, user_id)
+
+    if user.is_super_admin == 1 or length(Access.memberships_of(user_id)) > 1,
+      do: :ok,
+      else: {:error, {422, "потребителят трябва да остане обвързан с поне една фирма"}}
+  end
 
   defp scope(conn, company_id) do
     case Access.company_scope(conn.assigns.current_user, to_integer(company_id)) do

@@ -42,8 +42,10 @@ defmodule TransportWeb.DestinationController do
         Respond.error(conn, {404, "дестинацията не е намерена"})
 
       d ->
-        Destinations.delete(d)
-        Respond.ok(conn, %{ok: true})
+        case Destinations.delete(d) do
+          {:ok, _} -> Respond.ok(conn, %{ok: true})
+          error -> Respond.error(conn, error)
+        end
     end
   end
 end

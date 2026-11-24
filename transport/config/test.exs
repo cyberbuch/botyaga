@@ -26,7 +26,9 @@ config :logger, level: :warning
 
 config :transport,
   seed_destinations: false,
-  jwt_secret: "test-jwt-secret"
+  jwt_secret: "test-jwt-secret",
+  # Членството се проверява в базата на botyaga; тук стои заглушка с фиктивни членства.
+  access: Transport.AccessStub
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

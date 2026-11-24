@@ -79,6 +79,10 @@ function TripsInner() {
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.start_date || !form.end_date || form.end_date < form.start_date) {
+      setFormError(t("transport.date_order"));
+      return;
+    }
     setSaving(true);
     setFormError("");
     try {
@@ -156,11 +160,13 @@ function TripsInner() {
                   </td>
                   <td>
                     <div className="icon-actions">
-                      <IconButton icon="edit" title={t("common.edit")} onClick={() => openEdit(tr)} />
                       {tr.status !== "reported" && (
-                        <button className="btn btn-sm" onClick={() => void report(tr)}>{t("transport.report")}</button>
+                        <>
+                          <IconButton icon="edit" title={t("common.edit")} onClick={() => openEdit(tr)} />
+                          <button className="btn btn-sm" onClick={() => void report(tr)}>{t("transport.report")}</button>
+                          <IconButton icon="delete" title={t("common.delete")} danger onClick={() => void del(tr)} />
+                        </>
                       )}
-                      <IconButton icon="delete" title={t("common.delete")} danger onClick={() => void del(tr)} />
                     </div>
                   </td>
                 </tr>
@@ -189,11 +195,11 @@ function TripsInner() {
                 </div>
                 <div className="field">
                   <label className="label">{t("transport.start_date")}</label>
-                  <input className="input" type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+                  <input className="input" type="date" required value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
                 </div>
                 <div className="field">
                   <label className="label">{t("transport.end_date")}</label>
-                  <input className="input" type="date" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+                  <input className="input" type="date" required min={form.start_date} value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
                 </div>
                 <div className="field">
                   <label className="label">{t("transport.overnight")}</label>
@@ -210,6 +216,10 @@ function TripsInner() {
                 <div className="field">
                   <label className="label">{t("transport.advance")}</label>
                   <input className="input" value={form.advance} onChange={(e) => setForm({ ...form, advance: e.target.value })} />
+                </div>
+                <div className="field" style={{ gridColumn: "1 / -1" }}>
+                  <label className="label">{t("transport.note")}</label>
+                  <textarea className="input" rows={2} value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} />
                 </div>
               </div>
               {formError && <div className="error-text">{formError}</div>}

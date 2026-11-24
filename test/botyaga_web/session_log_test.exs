@@ -151,4 +151,95 @@ defmodule BotyagaWeb.SessionLogTest do
     assert [m] = u["memberships"]
     assert m["role"] == Access.role_accountant()
   end
+
+  test "остарял токен не изхвърля живата сесия при изход", %{super: super, user: user} do
+    old = json_response(login("user@baga.example", "парола-123"), 200)["access_token"]
+
+    conn = auth_conn(build_conn(), super)
+    assert json_response(post(conn, "/v1/admin/users/#{user.id}/revoke-sessions", %{}), 200)["ok"]
+
+    fresh = json_response(login("user@baga.example", "парола-123"), 200)["access_token"]
+
+    conn = build_conn() |> put_req_header("authorization", "Bearer #{old}")
+    assert json_response(post(conn, "/v1/auth/logout", %{}), 200)["ok"]
+
+    conn = build_conn() |> put_req_header("authorization", "Bearer #{fresh}")
+    assert json_response(get(conn, "/v1/me"), 200)
+  end
+
+  test "2FA токен след отнемане на сесиите не вади достъп", %{super: super, user: user} do
+    secret = Botyaga.Accounts.Totp.new_secret()
+
+    user =
+      user
+      |> Ecto.Changeset.change(totp_enabled: 1, totp_secret_b32: secret)
+      |> Botyaga.Repo.update!()
+
+    mfa_token =
+      Botyaga.Accounts.JWT.issue(
+        Application.get_env(:botyaga, :jwt_secret),
+        user.username,
+        user.session_version,
+        1
+      )
+
+    conn = auth_conn(build_conn(), super)
+    assert json_response(post(conn, "/v1/admin/users/#{user.id}/revoke-sessions", %{}), 200)["ok"]
+
+    conn =
+      post(build_conn(), "/v1/auth/mfa", %{"mfa_token" => mfa_token, "code" => totp_code(secret)})
+
+    assert json_response(conn, 401)
+  end
+
+  test "чужда фирма: редакция и настройки искат право companies", %{
+    super: super,
+    user: user,
+    company: company
+  } do
+    {:ok, other, _} = Companies.create(%{"name" => "Чужда ООД", "eik" => "207123457"}, super)
+    {:ok, facturist} = Access.role_id_by_name("Фактурист")
+    Access.grant(user.id, other.id, facturist)
+    Companies.set_active(user.username, company.id)
+
+    conn = auth_conn(build_conn(), user)
+    assert json_response(patch(conn, "/v1/companies/#{other.id}", %{"name" => "Хак"}), 403)
+
+    conn = auth_conn(build_conn(), user)
+    assert json_response(get(conn, "/v1/companies/#{other.id}/settings"), 403)
+  end
+
+  test "невалиден флаг е 422, не грешка при записа", %{super: super, user: user} do
+    conn = auth_conn(build_conn(), super)
+    conn = patch(conn, "/v1/users/#{user.id}", %{"is_active" => "maybe"})
+    assert json_response(conn, 422)
+  end
+
+  test "последното членство на потребител не се маха", %{
+    super: super,
+    user: user,
+    company: company
+  } do
+    conn = auth_conn(build_conn(), super)
+    conn = delete(conn, "/v1/companies/#{company.id}/users/#{user.id}")
+    assert json_response(conn, 422)["detail"] =~ "фирма"
+  end
+
+  test "дълъг вход не събаря заявката" do
+    conn = login(String.duplicate("a", 400), "парола-123")
+    assert json_response(conn, 401)
+  end
+
+  # RFC 6238: SHA1, 6 цифри, 30 s — същият алгоритъм като Accounts.Totp.
+  defp totp_code(secret_b32) do
+    import Bitwise
+    clean = secret_b32 |> String.replace("=", "")
+    padded = clean <> String.duplicate("=", rem(8 - rem(byte_size(clean), 8), 8))
+    {:ok, key} = Base.decode32(padded, case: :mixed)
+    counter = div(System.system_time(:second), 30)
+    mac = :crypto.mac(:hmac, :sha, key, <<counter::64>>)
+    offset = :binary.last(mac) &&& 0x0F
+    bin = mac |> binary_part(offset, 4) |> :binary.decode_unsigned() |> band(0x7FFF_FFFF)
+    bin |> rem(1_000_000) |> to_string() |> String.pad_leading(6, "0")
+  end
 end

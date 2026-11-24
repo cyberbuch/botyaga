@@ -78,7 +78,7 @@ defmodule Botyaga.Companies do
   end
 
   def update(id, params, actor) do
-    with {:ok, company} <- fetch_accessible(actor, id),
+    with {:ok, company} <- fetch_editable(actor, id),
          {:ok, changeset} <- apply_params(company, params),
          :ok <- check_eik(Ecto.Changeset.get_field(changeset, :eik), id) do
       {:ok, Repo.update!(changeset)}
@@ -88,12 +88,33 @@ defmodule Botyaga.Companies do
   def delete(id, actor) do
     with :ok <- require_super_admin(actor),
          %Company{} <- Repo.get(Company, to_int(id)) do
-      Repo.delete!(%Company{id: to_int(id)})
+      # Членствата сочат към фирмата — без нея висят и потребителите остават без фирма.
+      Repo.transaction(fn ->
+        Repo.delete_all(from(m in Access.Membership, where: m.company_id == ^to_int(id)))
+        Repo.delete!(%Company{id: to_int(id)})
+      end)
+
       {:ok, nil}
     else
       nil -> {:error, :not_found}
       {:error, :forbidden} -> {:error, :forbidden}
     end
+  end
+
+  @doc "За промени и настройки: членството не стига — трябва право „companies“ в тази фирма."
+  def fetch_editable(actor, id) do
+    with {:ok, company} <- fetch_accessible(actor, id),
+         :ok <- require_edit(actor, company.id) do
+      {:ok, company}
+    end
+  end
+
+  defp require_edit(%Accounts.User{is_super_admin: 1}, _id), do: :ok
+
+  defp require_edit(actor, id) do
+    if Access.allowed?(Access.perms_for(actor, id), "companies", is_super_admin: 0),
+      do: :ok,
+      else: {:error, {403, "липсва право: companies"}}
   end
 
   def fetch_accessible(actor, id) do
@@ -189,7 +210,12 @@ defmodule Botyaga.Companies do
   @doc "Табло: суми от фактурите на активната фирма."
   def dashboard(sub) do
     year = DateTime.utc_now() |> DateTime.to_date() |> then(& &1.year)
-    company_id = active_company_id(sub)
+
+    company_id =
+      case resolve_active(sub) do
+        {:ok, id} -> id
+        _ -> 0
+      end
 
     if company_id <= 0 do
       %{
@@ -332,7 +358,8 @@ defmodule Botyaga.Companies do
          {:ok, fiscal_month} <-
            optional_int(params, "fiscal_year_start_month", company.fiscal_year_start_month),
          :ok <- check_branch(changes),
-         :ok <- check_goods(changes) do
+         :ok <- check_goods(changes),
+         :ok <- check_submitter(changes) do
       changes =
         changes
         |> Map.put(:is_vat_registered, is_vat_registered)
@@ -340,6 +367,18 @@ defmodule Botyaga.Companies do
         |> apply_defaults(company)
 
       {:ok, Ecto.Changeset.change(company, changes)}
+    end
+  end
+
+  defp check_submitter(changes) do
+    case Map.get(changes, :vat_submitter) do
+      nil ->
+        :ok
+
+      raw ->
+        if String.trim(raw) in ["manager", "accountant", "authorized"],
+          do: :ok,
+          else: {:error, {422, "vat_submitter трябва да е manager, accountant или authorized"}}
     end
   end
 

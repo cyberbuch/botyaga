@@ -43,7 +43,7 @@ defmodule Botyaga.Journal do
             Repo.insert!(%Entry{
               company_id: company_id,
               entry_date: attrs.entry_date,
-              document_type: @manual,
+              document_type: attrs.document_type,
               document_id: 0,
               document_number: attrs.document_number,
               description: attrs.description,
@@ -107,7 +107,7 @@ defmodule Botyaga.Journal do
             Repo.update!(
               Ecto.Changeset.change(entry,
                 entry_date: attrs.entry_date,
-                document_type: @manual,
+                document_type: attrs.document_type,
                 document_number: attrs.document_number,
                 description: attrs.description,
                 vat_type: attrs.vat_type,
@@ -289,20 +289,36 @@ defmodule Botyaga.Journal do
         given_date = String.trim(string(params, "document_date"))
         document_date = if given_date == "", do: entry_date, else: given_date
         given_period = String.trim(string(params, "vat_period"))
-        vat_period = if given_period != "", do: given_period, else: month_of(entry_date)
 
-        {:ok,
-         %{
-           entry_date: entry_date,
-           description: description,
-           vat_type: vat_type,
-           counterpart_id: counterpart_id,
-           counterpart_name: counterpart_name,
-           document_number: document_number,
-           document_date: document_date,
-           vat_period: vat_period
-         }}
+        with {:ok, vat_period} <- vat_period(given_period, entry_date) do
+          given_type = String.trim(string(params, "document_type"))
+
+          document_type =
+            if Regex.match?(~r/^[0-9]{2}$/, given_type), do: given_type, else: @manual
+
+          {:ok,
+           %{
+             entry_date: entry_date,
+             document_type: document_type,
+             description: description,
+             vat_type: vat_type,
+             counterpart_id: counterpart_id,
+             counterpart_name: counterpart_name,
+             document_number: document_number,
+             document_date: document_date,
+             vat_period: vat_period
+           }}
+        end
       end
+    end
+  end
+
+  defp vat_period("", entry_date), do: {:ok, month_of(entry_date)}
+
+  defp vat_period(given, _entry_date) do
+    case Botyaga.Vat.Fmt.parse_period(given) do
+      {:ok, p} -> {:ok, p.iso}
+      {:error, _} -> {:error, {422, "vat_period трябва да е във формат ГГГГ-ММ"}}
     end
   end
 

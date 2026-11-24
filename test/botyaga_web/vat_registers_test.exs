@@ -69,7 +69,7 @@ defmodule BotyagaWeb.VatRegistersTest do
 
     post(conn, "/v1/invoices/#{proto["id"]}/post", %{})
 
-    {:ok, conn: conn, supplier: supplier, product: product}
+    {:ok, conn: conn, supplier: supplier, product: product, invoice_id: inv["id"]}
   end
 
   defp line(product_id, description, amount) do
@@ -96,12 +96,32 @@ defmodule BotyagaWeb.VatRegistersTest do
     assert purch["vat_full_credit"] == "200.00"
     assert [sale] = body["sales"]
     assert sale["document_type"] == "09"
-    assert sale["vop_sales_base"] == "1000.00"
-    assert sale["vop_sales_vat"] == "200.00"
-    assert body["cells"]["01-12"] == "1000.00"
-    assert body["cells"]["01-22"] == "200.00"
+
+    # spec: протокол по чл. 117 се описва като дебитно известие — обикновени колони.
+    assert sale["base_20"] == "1000.00"
+    assert sale["vat_20"] == "200.00"
+    assert sale["vop_sales_base"] == "0.00"
+    assert body["cells"]["01-11"] == "1000.00"
+    assert body["cells"]["01-21"] == "200.00"
     assert body["cells"]["01-31"] == "1000.00"
     assert body["cells"]["01-41"] == "200.00"
+  end
+
+  test "протокол по чл. 82 отива във ВОП колоните", %{conn: conn, invoice_id: inv_id} do
+    proto =
+      json_response(
+        post(conn, "/v1/invoices/#{inv_id}/issue-protocol", %{"vat_article" => "чл. 82"}),
+        201
+      )
+
+    post(conn, "/v1/invoices/#{proto["id"]}/post", %{})
+
+    body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
+    vop = Enum.find(body["sales"], &(&1["vop_sales_base"] != "0.00"))
+    assert vop["vop_sales_base"] == "1000.00"
+    assert vop["vop_sales_vat"] == "200.00"
+    assert body["cells"]["01-12"] == "1000.00"
+    assert body["cells"]["01-22"] == "200.00"
   end
 
   test "фактурата извън ДДС дневника не влиза в регистрите", %{conn: conn} do

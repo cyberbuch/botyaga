@@ -6,6 +6,7 @@ import { getToken, setToken, ACTIVE_COMPANY_EVENT, ApiError } from "./api";
 const BASE = "/transport/v1";
 
 let cachedCompany = 0;
+let cachedToken: string | null = null;
 let companyPromise: Promise<number> | null = null;
 
 if (typeof window !== "undefined") {
@@ -15,16 +16,21 @@ if (typeof window !== "undefined") {
   });
 }
 
+// Кешът е вързан с токена: при смяна на потребител в същия таб не бива
+// новият потребител да изпрати фирмата на предишния.
 async function companyId(): Promise<number> {
-  if (cachedCompany > 0) return cachedCompany;
+  const token = getToken();
+  if (cachedCompany > 0 && cachedToken === token) return cachedCompany;
+  cachedCompany = 0;
   if (!companyPromise) {
     companyPromise = fetch("/v1/active-company", {
-      headers: { Authorization: `Bearer ${getToken() ?? ""}` },
+      headers: { Authorization: `Bearer ${token ?? ""}` },
       cache: "no-store",
     })
       .then((r) => (r.ok ? r.json() : {}))
       .then((c: { id?: number }) => {
         cachedCompany = Number(c.id) || 0;
+        cachedToken = token;
         return cachedCompany;
       })
       .catch(() => 0)

@@ -13,16 +13,17 @@ defmodule TransportWeb.Respond do
 
   def error(conn, {:error, {status, detail}}), do: error(conn, {status, detail})
 
+  @doc "Фирмата от заглавката; всичко освен цяло положително число е 0 ( = отказ в Scope)."
   def company_id(conn) do
-    raw =
-      case get_req_header(conn, "x-company-id") do
-        [value | _] -> value
-        [] -> conn.params["company_id"] || ""
-      end
+    case get_req_header(conn, "x-company-id") do
+      [value | _] ->
+        case Integer.parse(String.trim(value)) do
+          {n, ""} when n > 0 -> n
+          _ -> 0
+        end
 
-    case Integer.parse(to_string(raw)) do
-      {n, _} -> n
-      :error -> 0
+      [] ->
+        0
     end
   end
 end
