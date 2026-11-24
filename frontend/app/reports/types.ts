@@ -16,8 +16,9 @@ export interface Counterpart {
 }
 
 export interface TrialRow {
-  account_number: string;
-  account_name: string;
+  account_number?: string;
+  account_name?: string;
+  counterpart_name?: string;
   opening_debit: string;
   opening_credit: string;
   turnover_debit: string;
@@ -40,11 +41,14 @@ export interface FirmHead {
   company_eik?: string;
 }
 
+export type TrialMode = "accounts" | "by_account_cp";
+
 export interface TrialData extends FirmHead {
   kind: string;
   from: string;
   to: string;
   title: string;
+  mode?: TrialMode;
   rows: TrialRow[];
   totals: TrialTotals;
 }
@@ -146,6 +150,11 @@ export interface CorrData extends FirmHead {
 
 export function isCp(kind: Kind): boolean {
   return kind === "counterpart_trial" || kind === "counterpart_chrono";
+}
+
+// Контрагентът е по желание и при обикновената оборотна, и при контрагентните.
+export function hasCpFilter(kind: Kind): boolean {
+  return kind === "trial_balance" || isCp(kind);
 }
 
 export function isFs(kind: Kind): boolean {

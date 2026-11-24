@@ -251,6 +251,58 @@ defmodule Botyaga.Reports.Data do
     end)
   end
 
+  @doc """
+  Обороти по сметка и контрагент: {%{account_id => {%{cp_id => %{od, oc, td, tc}}}}.
+  Контрагентът е на записа (редът на дневника няма counterpart_id).
+  """
+  def turns_by_cp(b) do
+    update = fn t, acc_id, cp_id, key, amount ->
+      row = Map.get(t, {acc_id, cp_id}) || %{od: 0, oc: 0, td: 0, tc: 0}
+      Map.put(t, {acc_id, cp_id}, Map.put(row, key, row[key] + amount))
+    end
+
+    t =
+      Enum.reduce(b.openings, %{}, fn o, t ->
+        if b.cpid > 0 and o.cp_id != b.cpid do
+          t
+        else
+          t
+          |> update.(o.account_id, o.cp_id, :od, o.debit)
+          |> update.(o.account_id, o.cp_id, :oc, o.credit)
+        end
+      end)
+
+    from_is_fiscal = b.from == b.fiscal
+
+    Enum.reduce(b.lines, t, fn line, t ->
+      if b.cpid > 0 and Map.get(b.cps, line.entry_id, 0) != b.cpid do
+        t
+      else
+        cp_id = Map.get(b.cps, line.entry_id, 0)
+        day = Map.get(b.days, line.entry_id, "")
+
+        t =
+          if not from_is_fiscal and in_range(day, b.fiscal, b.from, true) do
+            if line.debit,
+              do: update.(t, line.account_id, cp_id, :od, line.amount),
+              else: update.(t, line.account_id, cp_id, :oc, line.amount)
+          else
+            t
+          end
+
+        if in_range(day, b.from, b.to, false) do
+          if line.debit,
+            do: update.(t, line.account_id, cp_id, :td, line.amount),
+            else: update.(t, line.account_id, cp_id, :tc, line.amount)
+        else
+          t
+        end
+      end
+    end)
+  end
+
+  def cp_names(b), do: Map.new(b.entries, fn e -> {e.cp_id, e.cp_name} end)
+
   def numbers(b), do: Map.new(b.accounts, &{&1.id, &1.number})
   def names(b), do: Map.new(b.accounts, &{&1.number, &1.name})
 

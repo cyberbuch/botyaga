@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment, useMemo } from "react";
 import { formatBgDate } from "../../lib/dates";
 import {
   ChronoData,
@@ -7,6 +8,8 @@ import {
   FirmHead,
   LedgerData,
   TrialData,
+  TrialMode,
+  TrialRow,
   firmLine,
 } from "./types";
 
@@ -34,14 +37,40 @@ export function TrialTable({
   t: (k: string) => string;
 }) {
   const tot = data.totals;
+  const mode: TrialMode = data.mode ?? "accounts";
+
+  // При избрана сметка: сметката е заглавие, под нея — нейните контрагенти.
+  const groups = useMemo(() => {
+    if (mode !== "by_account_cp") return [];
+    const m = new Map<string, { number: string; name: string; rows: TrialRow[] }>();
+    for (const r of data.rows ?? []) {
+      const key = r.account_number ?? "";
+      const g = m.get(key) ?? { number: key, name: r.account_name ?? "", rows: [] };
+      g.rows.push(r);
+      m.set(key, g);
+    }
+    return [...m.values()];
+  }, [mode, data.rows]);
+
   return (
     <div className="table-wrap print-sheet">
       <table className="table">
         <thead>
-          <FirmTableRow d={data} cols={8} />
+          <FirmTableRow d={data} cols={mode === "accounts" ? 8 : 9} />
           <tr>
-            <th>{t("reports.col.account")}</th>
-            <th>{t("reports.col.name")}</th>
+            {mode === "accounts" && (
+              <>
+                <th>{t("reports.col.account")}</th>
+                <th>{t("reports.col.name")}</th>
+              </>
+            )}
+            {mode === "by_account_cp" && (
+              <>
+                <th>{t("reports.col.account")}</th>
+                <th>{t("reports.col.name")}</th>
+                <th>{t("reports.col.counterpart")}</th>
+              </>
+            )}
             <th className="num">{t("reports.col.od")}</th>
             <th className="num">{t("reports.col.oc")}</th>
             <th className="num">{t("reports.col.td")}</th>
@@ -51,23 +80,48 @@ export function TrialTable({
           </tr>
         </thead>
         <tbody>
-          {(data.rows ?? []).map((r) => (
-            <tr key={r.account_number}>
-              <td>{r.account_number}</td>
-              <td>{r.account_name}</td>
-              <Num v={r.opening_debit} />
-              <Num v={r.opening_credit} />
-              <Num v={r.turnover_debit} />
-              <Num v={r.turnover_credit} />
-              <Num v={r.closing_debit} />
-              <Num v={r.closing_credit} />
-            </tr>
-          ))}
+          {mode === "accounts" &&
+            (data.rows ?? []).map((r) => (
+              <tr key={`${r.account_number}/${r.counterpart_name}`}>
+                <td>{r.account_number}</td>
+                <td>{r.account_name}</td>
+                <Num v={r.opening_debit} />
+                <Num v={r.opening_credit} />
+                <Num v={r.turnover_debit} />
+                <Num v={r.turnover_credit} />
+                <Num v={r.closing_debit} />
+                <Num v={r.closing_credit} />
+              </tr>
+            ))}
+
+          {mode === "by_account_cp" &&
+            groups.map((g) => (
+              <Fragment key={g.number}>
+                <tr className="report-group-head">
+                  <td colSpan={9}>
+                    {g.number} · {g.name}
+                  </td>
+                </tr>
+                {g.rows.map((r, i) => (
+                  <tr key={`${r.counterpart_name}/${i}`}>
+                    <td colSpan={2} />
+                    <td>{r.counterpart_name}</td>
+                    <Num v={r.opening_debit} />
+                    <Num v={r.opening_credit} />
+                    <Num v={r.turnover_debit} />
+                    <Num v={r.turnover_credit} />
+                    <Num v={r.closing_debit} />
+                    <Num v={r.closing_credit} />
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+
         </tbody>
         {tot && (
           <tfoot>
             <tr>
-              <td colSpan={2}>{t("reports.total")}</td>
+              <td colSpan={mode === "accounts" ? 2 : 3}>{t("reports.total")}</td>
               <Num v={tot.opening_debit} />
               <Num v={tot.opening_credit} />
               <Num v={tot.turnover_debit} />

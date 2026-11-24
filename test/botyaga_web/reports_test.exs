@@ -56,9 +56,54 @@ defmodule BotyagaWeb.ReportsTest do
       assert body["totals"]["turnover_credit"] == "1200.00"
     end
 
-    test "филтър по сметка", %{conn: conn} do
+    test "филтър по сметка дава и нейните контрагенти", %{conn: conn, cp: cp} do
       body = report(conn, "kind=trial_balance&from=2026-01-01&to=2026-12-31&account=70")
-      assert Enum.map(body["rows"], & &1["account_number"]) == ["702"]
+      assert body["mode"] == "by_account_cp"
+      assert Enum.map(body["rows"], & &1["counterpart_name"]) == [cp["name"]]
+      assert Enum.all?(body["rows"], &(&1["account_number"] == "702"))
+    end
+
+    test "една сметка плюс избран контрагент", %{conn: conn, cp: cp} do
+      body =
+        report(
+          conn,
+          "kind=trial_balance&from=2026-01-01&to=2026-12-31&account=411&counterpart_id=#{cp["id"]}"
+        )
+
+      assert body["mode"] == "by_account_cp"
+      assert Enum.map(body["rows"], & &1["counterpart_name"]) == [cp["name"]]
+      assert hd(body["rows"])["account_number"] == "411"
+    end
+
+    test "филтър по сметка 411 — списък с контрагентите ѝ", %{conn: conn, cp: cp} do
+      cp2 =
+        json_response(
+          post(conn, "/v1/counterparts", %{"name" => "Доставчик", "eik" => "444555666"}),
+          201
+        )
+
+      by_number =
+        Map.new(
+          json_response(get(conn, "/v1/accounts?limit=500"), 200)["items"],
+          &{&1["number"], &1["id"]}
+        )
+
+      post(conn, "/v1/journal", %{
+        "entry_date" => "2026-02-10",
+        "document_number" => "J-2",
+        "description" => "Покупка",
+        "counterpart_id" => cp2["id"],
+        "lines" => [
+          %{"account_id" => by_number["411"], "direction" => "debit", "amount" => "500.00"},
+          %{"account_id" => by_number["401"], "direction" => "credit", "amount" => "500.00"}
+        ]
+      })
+
+      body = report(conn, "kind=trial_balance&from=2026-01-01&to=2026-12-31&account=411")
+      names = Enum.map(body["rows"], & &1["counterpart_name"])
+      assert cp["name"] in names
+      assert cp2["name"] in names
+      assert body["totals"]["turnover_debit"] == "1700.00"
     end
   end
 
@@ -92,9 +137,21 @@ defmodule BotyagaWeb.ReportsTest do
   end
 
   describe "контрагентни справки" do
-    test "изисква counterpart_id", %{conn: conn} do
-      conn = get(conn, "/v1/reports?kind=counterpart_trial&from=2026-01-01&to=2026-12-31")
-      assert json_response(conn, 400)["detail"] == "counterpart_id е задължителен"
+    test "без избран контрагент — всички, сметката отгоре", %{conn: conn, cp: cp} do
+      body = report(conn, "kind=counterpart_trial&from=2026-01-01&to=2026-12-31")
+      assert body["mode"] == "by_account_cp"
+      assert Enum.all?(body["rows"], &(&1["counterpart_name"] == cp["name"]))
+
+      assert Enum.map(body["rows"], & &1["account_number"]) |> Enum.sort() == [
+               "411",
+               "4532",
+               "702"
+             ]
+
+      chrono =
+        report(conn, "kind=counterpart_chrono&from=2026-01-01&to=2026-12-31")
+
+      assert Enum.any?(chrono["rows"], &(&1["counterpart_name"] == cp["name"]))
     end
 
     test "оборотна по контрагент", %{conn: conn, cp: cp} do

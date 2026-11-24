@@ -298,6 +298,7 @@ export const enB = {
   "reports.account": "Account (prefix)",
   "reports.counterpart": "Counterpart",
   "reports.pick_counterpart": "— pick a counterpart —",
+  "reports.all_counterparts": "All counterparties",
   "reports.print": "Print",
   "reports.tab.trial": "Trial balance",
   "reports.tab.ledger": "General ledger",

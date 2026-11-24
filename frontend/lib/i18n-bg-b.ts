@@ -299,6 +299,7 @@ export const bgB = {
   "reports.account": "Сметка (префикс)",
   "reports.counterpart": "Контрагент",
   "reports.pick_counterpart": "— изберете контрагент —",
+  "reports.all_counterparts": "Всички контрагенти",
   "reports.print": "Печат",
   "reports.tab.trial": "Оборотна ведомост",
   "reports.tab.ledger": "Главна книга",

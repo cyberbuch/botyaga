@@ -59,7 +59,8 @@ defmodule Botyaga.Reports do
     with :ok <- check_kind(kind),
          {:ok, from, to} <- check_dates(params),
          {:ok, cpid} <- counterpart(params, kind) do
-      wants_cp = kind in ["counterpart_trial", "counterpart_chrono"]
+      # Контрагентят филтрира и в обикновената оборотна (една сметка + избран контрагент).
+      wants_cp = kind in ["trial_balance", "counterpart_trial", "counterpart_chrono"]
       filter_cp = if wants_cp, do: cpid, else: 0
 
       if kind == "stock" do
@@ -110,13 +111,12 @@ defmodule Botyaga.Reports do
     end
   end
 
-  defp counterpart(params, kind) do
-    cpid = params |> str("counterpart_id") |> String.trim() |> to_cp()
-    wants_cp = kind in ["counterpart_trial", "counterpart_chrono"]
-
-    if wants_cp and cpid <= 0,
-      do: {:error, {400, "counterpart_id е задължителен"}},
-      else: {:ok, cpid}
+  # Контрагентът е по желание: без него справката показва всички.
+  defp counterpart(params, _kind) do
+    case params |> str("counterpart_id") |> String.trim() |> to_cp() do
+      n when n >= 0 -> {:ok, n}
+      _ -> {:error, {400, "counterpart_id трябва да е цяло число"}}
+    end
   end
 
   defp to_cp(""), do: 0

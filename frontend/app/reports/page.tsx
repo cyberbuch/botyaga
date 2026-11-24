@@ -19,7 +19,7 @@ import {
   LedgerData,
   TrialData,
   firmLine,
-  isCp,
+  hasCpFilter,
   isFs,
 } from "./types";
 import { ChronoTable, CorrSide, FirmTableRow, LedgerTables, TrialTable } from "./tables";
@@ -47,7 +47,7 @@ function qs(kind: Kind, from: string, to: string, account: string, cpid: string)
   p.set("from", from);
   p.set("to", to);
   if (account.trim()) p.set("account", account.trim());
-  if (isCp(kind) && cpid) p.set("counterpart_id", cpid);
+  if (hasCpFilter(kind) && cpid) p.set("counterpart_id", cpid);
   return p.toString();
 }
 
@@ -76,10 +76,6 @@ function ReportsInner() {
   }, []);
 
   const load = useCallback(async () => {
-    if (isCp(kind) && !cpid) {
-      setError(t("reports.need_counterpart"));
-      return;
-    }
     setLoading(true);
     setError("");
     setTrial(null);
@@ -105,13 +101,9 @@ function ReportsInner() {
     } finally {
       setLoading(false);
     }
-  }, [kind, from, to, account, cpid, t]);
+  }, [kind, from, to, account, cpid]);
 
   const exportFmt = async (fmt: "pdf" | "xlsx" | "ods") => {
-    if (isCp(kind) && !cpid) {
-      setError(t("reports.need_counterpart"));
-      return;
-    }
     setBusy(fmt);
     setError("");
     try {
@@ -201,11 +193,11 @@ function ReportsInner() {
               placeholder="401"
             />
           </div>
-          {isCp(kind) && (
+          {hasCpFilter(kind) && (
             <div className="field" style={{ margin: 0, minWidth: 220 }}>
               <label className="label">{t("reports.counterpart")}</label>
               <select className="select" value={cpid} onChange={(e) => setCpid(e.target.value)}>
-                <option value="">{t("reports.pick_counterpart")}</option>
+                <option value="">{t("reports.all_counterparts")}</option>
                 {counterparts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

@@ -601,6 +601,12 @@
   overflow-x: auto;
 }
 
+/* Заглавие на сметка в оборотната, под които са нейните контрагенти. */
+.report-group-head td {
+  font-weight: 700;
+  background: var(--surface-2);
+}
+
 .tab {
   padding: 10px 20px;
   border: none;
