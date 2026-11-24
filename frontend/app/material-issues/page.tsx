@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "../../components/RequireAuth";
 import { useI18n } from "../../components/I18nProvider";
 import { ACTIVE_COMPANY_EVENT, api, fetchAll, ListResponse } from "../../lib/api";
-import { CompanyLocation, fetchCompanyLocations } from "../../lib/locations";
+import { CompanyLocation, fetchCompanyLocations, mainLocationId } from "../../lib/locations";
 import { Pagination } from "../../components/Pagination";
 import { AuditHistoryPanel, AuditStampBadge } from "../../components/AuditHistory";
 import { AuditEntry } from "../../lib/invoice";
@@ -79,6 +79,7 @@ function Inner() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [offset, setOffset] = useState(0);
+  const [tab, setTab] = useState<"bulk" | "docs">("bulk");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -166,12 +167,30 @@ function Inner() {
     <div>
       <div className="page-head">
         <h1 className="page-title">{t("mat.title")}</h1>
-        {!doc && (
+        {!doc && tab === "docs" && (
           <button type="button" className="btn btn-primary" onClick={startNew}>
             {t("mat.new")}
           </button>
         )}
       </div>
+      {!doc && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button
+            type="button"
+            className={`btn ${tab === "bulk" ? "btn-primary" : ""}`}
+            onClick={() => setTab("bulk")}
+          >
+            {t("mat.tab.bulk")}
+          </button>
+          <button
+            type="button"
+            className={`btn ${tab === "docs" ? "btn-primary" : ""}`}
+            onClick={() => setTab("docs")}
+          >
+            {t("mat.tab.docs")}
+          </button>
+        </div>
+      )}
       {error && <div className="error-text">{error}</div>}
       {doc ? (
         <Editor
@@ -197,6 +216,24 @@ function Inner() {
           }}
           onError={setError}
         />
+      ) : tab === "bulk" ? (
+        loading ? (
+          <div className="content muted">{t("common.loading")}</div>
+        ) : (
+          <BulkWriteoff
+            t={t}
+            products={products}
+            accounts={accounts}
+            rules={rules}
+            locations={locations}
+            accLabel={accLabel}
+            onError={setError}
+            onPosted={async () => {
+              await load();
+              setTab("docs");
+            }}
+          />
+        )
       ) : loading ? (
         <div className="content muted">{t("common.loading")}</div>
       ) : (
@@ -261,6 +298,288 @@ function Inner() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+interface BalRow {
+  product_id: number;
+  product_name: string;
+  location_id: number;
+  quantity: string;
+  value: string;
+}
+
+interface StockReport {
+  balances: BalRow[];
+  warnings?: string[];
+}
+
+function num(s: string | undefined | null): number {
+  const n = parseFloat(String(s ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function fmtQty(n: number): string {
+  return String(Math.round(n * 1e6) / 1e6);
+}
+
+function BulkWriteoff({
+  t,
+  products,
+  accounts,
+  rules,
+  locations,
+  accLabel,
+  onError,
+  onPosted,
+}: {
+  t: (key: string) => string;
+  products: Product[];
+  accounts: Account[];
+  rules: Rule[];
+  locations: CompanyLocation[];
+  accLabel: (id: number) => string;
+  onError: (msg: string) => void;
+  onPosted: () => Promise<void>;
+}) {
+  const [locationId, setLocationId] = useState(0);
+  const [invAcc, setInvAcc] = useState(0);
+  const [expenseAcc, setExpenseAcc] = useState(0);
+  const [q, setQ] = useState("");
+  const [stock, setStock] = useState<Record<number, number>>({});
+  const [rem, setRem] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+
+  // Главният складов обект по подразбиране
+  useEffect(() => {
+    if (locationId === 0 && locations.length > 0) setLocationId(mainLocationId(locations));
+  }, [locations, locationId]);
+
+  // Първата налична сметка за материали (напр. 302) по подразбиране
+  useEffect(() => {
+    if (invAcc === 0) {
+      const ids = [...new Set(products.map((p) => p.inventory_account_id).filter((id) => id > 0))].sort(
+        (a, b) => a - b
+      );
+      if (ids.length > 0) setInvAcc(ids[0]);
+    }
+  }, [products, invAcc]);
+
+  // При смяна на сметката за материали — разходната сметка се занулява
+  useEffect(() => {
+    setExpenseAcc(0);
+  }, [invAcc]);
+
+  // Наличностите са сборно за фирмата (себестойността е по артикул, не по обект),
+  // за да се виждат всички материали по сметката с количество различно от 0.
+  const loadStock = useCallback(async () => {
+    setNote("");
+    try {
+      const data = await api.get<StockReport>("/v1/stock/report");
+      const map: Record<number, number> = {};
+      for (const b of data.balances ?? []) {
+        map[b.product_id] = (map[b.product_id] ?? 0) + num(b.quantity);
+      }
+      setStock(map);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    loadStock();
+  }, [loadStock]);
+
+  const inventoryAccounts = useMemo(() => {
+    const ids = [...new Set(products.map((p) => p.inventory_account_id).filter((id) => id > 0))];
+    return ids.sort((a, b) => accLabel(a).localeCompare(accLabel(b)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, accounts]);
+
+  // Разходни сметки: от правилата за сметката плюс зададените в артикулите (60101, 60102…)
+  const expenseChoices = useMemo(() => {
+    const fromProducts = [
+      ...new Set(
+        products
+          .filter((p) => p.inventory_account_id === invAcc)
+          .map((p) => p.expense_account_id ?? 0)
+          .filter((id) => id > 0)
+      ),
+    ];
+    return [...new Set([...offsets(rules, invAcc, 0), ...fromProducts])];
+  }, [rules, invAcc, products]);
+
+  // Само материали с количество различно от 0, с търсене по код/име
+  const rows = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return products
+      .filter((p) => p.inventory_account_id === invAcc)
+      .map((p) => ({ product: p, available: stock[p.id] ?? 0 }))
+      .filter((r) => Math.abs(r.available) > 1e-9)
+      .filter((r) => !s || `${r.product.code} ${r.product.name}`.toLowerCase().includes(s))
+      .sort((a, b) =>
+        `${a.product.code} ${a.product.name}`.localeCompare(`${b.product.code} ${b.product.name}`)
+      );
+  }, [products, invAcc, stock, q]);
+
+  // Сметка на изписване: избраната горе има предност, иначе дефинираната за материала
+  function lineAccount(product: Product): number {
+    if (expenseAcc > 0) return expenseAcc;
+    return product.expense_account_id && product.expense_account_id > 0
+      ? product.expense_account_id
+      : 0;
+  }
+
+  // За изписване = налично - остатък (при остатък 0 се изписва всичко)
+  function issueQty(available: number, productId: number): number {
+    const raw = rem[productId];
+    const r = raw === undefined || raw.trim() === "" ? 0 : num(raw);
+    return Math.max(0, Math.round((available - r) * 1e6) / 1e6);
+  }
+
+  async function post() {
+    setBusy(true);
+    onError("");
+    setNote("");
+    try {
+      if (locationId <= 0) throw new Error(t("mat.bulk.no_location"));
+      const lines = rows
+        .map((r) => ({
+          product_id: r.product.id,
+          quantity: fmtQty(issueQty(r.available, r.product.id)),
+          account_id: lineAccount(r.product),
+          inventory_account_id: invAcc,
+        }))
+        .filter((l) => num(l.quantity) > 0);
+      if (lines.length === 0) throw new Error(t("mat.bulk.no_lines"));
+      if (lines.some((l) => l.account_id <= 0)) throw new Error(t("mat.bulk.pick_expense"));
+      const created = await api.post<Doc>("/v1/material-issues", {
+        doc_date: isoDay(),
+        location_id: locationId,
+        notes: `${t("mat.bulk.notes")} ${accLabel(invAcc)}`,
+        lines,
+      });
+      await api.post(`/v1/material-issues/${created.id}/confirm`, {});
+      setNote(`${t("mat.bulk.posted")}: ${created.number}`);
+      setRem({});
+      await loadStock();
+      await onPosted();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card card-pad">
+      <div className="form-grid">
+        <div className="field">
+          <label className="label">{t("mat.location")}</label>
+          <select
+            className="select"
+            value={String(locationId)}
+            onChange={(e) => setLocationId(Number(e.target.value) || 0)}
+          >
+            <option value="0">{t("stock.rules.pick")}</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label">{t("mat.bulk.inventory")}</label>
+          <select
+            className="select"
+            value={String(invAcc)}
+            onChange={(e) => setInvAcc(Number(e.target.value) || 0)}
+          >
+            <option value="0">{t("mat.bulk.pick_inventory")}</option>
+            {inventoryAccounts.map((id) => (
+              <option key={id} value={id}>{accLabel(id)}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label className="label">{t("mat.bulk.expense")}</label>
+          {expenseChoices.length === 0 ? (
+            <span className="muted">{t("mat.no_rule")}</span>
+          ) : (
+            <select
+              className="select"
+              value={String(expenseAcc)}
+              onChange={(e) => setExpenseAcc(Number(e.target.value) || 0)}
+            >
+              <option value="0">{t("mat.bulk.pick_expense")}</option>
+              {expenseChoices.map((id) => (
+                <option key={id} value={id}>{accLabel(id)}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className="field">
+          <label className="label">{t("common.search")}</label>
+          <input
+            className="input"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("mat.bulk.search")}
+          />
+        </div>
+      </div>
+      {note && <div className="content">{note}</div>}
+      <table className="table">
+        <thead>
+          <tr>
+            <th>{t("mat.product")}</th>
+            <th>{t("mat.bulk.available")}</th>
+            <th>{t("mat.bulk.remainder")}</th>
+            <th>{t("mat.bulk.issue")}</th>
+            <th>{t("mat.account")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="muted">{t("mat.bulk.empty")}</td>
+            </tr>
+          ) : (
+            rows.map(({ product, available }) => {
+              const acc = lineAccount(product);
+              return (
+                <tr key={product.id}>
+                  <td>{product.code ? `${product.code} ` : ""}{product.name}</td>
+                  <td>{fmtQty(available)}</td>
+                  <td>
+                    <input
+                      className="input"
+                      style={{ maxWidth: 110 }}
+                      value={rem[product.id] ?? "0"}
+                      onChange={(e) =>
+                        setRem((prev) => ({ ...prev, [product.id]: e.target.value }))
+                      }
+                    />
+                  </td>
+                  <td>{fmtQty(issueQty(available, product.id))}</td>
+                  <td className={acc > 0 ? "" : "muted"}>{acc > 0 ? accLabel(acc) : "—"}</td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+      <div className="form-actions">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={busy || locationId <= 0 || rows.length === 0}
+          onClick={post}
+        >
+          {t("mat.bulk.journal")}
+        </button>
+      </div>
     </div>
   );
 }
