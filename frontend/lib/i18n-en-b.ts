@@ -415,6 +415,7 @@ export const enB = {
   "users.no_memberships": "no memberships",
   "users.revoke_sessions": "Revoke sessions",
   "users.revoke_confirm": "Revoke all sessions of this user?",
+  "users.sessions_retention": "The login log keeps only the last 20 days.",
   "users.sessions_revoked": "Sessions revoked",
   "sessions.time": "Time",
   "sessions.user": "User",

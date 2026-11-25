@@ -644,11 +644,8 @@ function Editor({
     });
   }
 
-  async function save(e?: FormEvent) {
-    e?.preventDefault();
-    setBusy(true);
-    onError("");
-    const body = {
+  function draftBody() {
+    return {
       doc_date: date,
       location_id: locationId,
       notes,
@@ -659,14 +656,14 @@ function Editor({
         inventory_account_id: l.inventory_account_id,
       })),
     };
+  }
+
+  async function save(e?: FormEvent) {
+    e?.preventDefault();
+    setBusy(true);
+    onError("");
     try {
-      if (creating) {
-        const created = await api.post<Doc>("/v1/material-issues", body);
-        await onSaved(created.id);
-      } else {
-        await api.patch(`/v1/material-issues/${doc.id}`, body);
-        await onSaved(doc.id);
-      }
+      await persist();
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -674,11 +671,22 @@ function Editor({
     }
   }
 
+  async function persist() {
+    const body = draftBody();
+    if (creating) {
+      const created = await api.post<Doc>("/v1/material-issues", body);
+      await onSaved(created.id);
+    } else {
+      await api.patch(`/v1/material-issues/${doc.id}`, body);
+      await onSaved(doc.id);
+    }
+  }
+
   async function act(path: string) {
     setBusy(true);
     onError("");
     try {
-      if (!creating && !locked) await save();
+      if (!creating && !locked) await persist();
       await api.post(path, {});
       await onSaved(doc.id);
     } catch (err) {

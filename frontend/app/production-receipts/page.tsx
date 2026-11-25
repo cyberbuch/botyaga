@@ -570,19 +570,22 @@ function Editor({
     );
   }
 
+  function draftBody() {
+    return {
+      notes,
+      lines: lines.map((l) => ({
+        product_id: l.product_id,
+        ending_quantity: l.ending_quantity,
+      })),
+    };
+  }
+
   async function save(e?: FormEvent) {
     e?.preventDefault();
     setBusy(true);
     onError("");
     try {
-      const body = {
-        notes,
-        lines: lines.map((l) => ({
-          product_id: l.product_id,
-          ending_quantity: l.ending_quantity,
-        })),
-      };
-      const updated = await api.patch<Doc>(`/v1/production-receipts/${doc.id}`, body);
+      const updated = await api.patch<Doc>(`/v1/production-receipts/${doc.id}`, draftBody());
       await onSaved(updated);
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -595,8 +598,21 @@ function Editor({
     setBusy(true);
     onError("");
     try {
-      const updated = await api.post<Doc>(path, {});
-      await onSaved(updated);
+      // Потвърждаването чете редовете от базата — първо се записва черновата,
+      // иначе нова наличност на екрана не влиза в записа.
+      if (!locked && path.endsWith("/confirm")) {
+        const saved = await api.patch<Doc>(`/v1/production-receipts/${doc.id}`, draftBody());
+        try {
+          const updated = await api.post<Doc>(path, {});
+          await onSaved(updated);
+        } catch (err) {
+          await onSaved(saved);
+          throw err;
+        }
+      } else {
+        const updated = await api.post<Doc>(path, {});
+        await onSaved(updated);
+      }
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -618,7 +634,35 @@ function Editor({
     }
   }
 
-  const totalAmount = lines.reduce((s, l) => s + num(l.amount), 0);
+  // 611 не се мени от наличността: единичната цена е оборотът / новото произведено.
+  // Запазените amount/unit_cost важат само докато наличността не е пипана.
+  const endingDirty = lines.some(
+    (l) => Math.abs(num(l.ending_quantity) - (num(l.quantity) - num(l.sold_quantity))) > 1e-6
+  );
+  const expenseBase = lines.reduce((s, l) => s + num(l.unit_cost) * num(l.quantity), 0);
+  const producedNow = lines.reduce(
+    (s, l) => s + num(l.sold_quantity) + num(l.ending_quantity),
+    0
+  );
+  const unitLive = producedNow > 0 ? expenseBase / producedNow : 0;
+
+  function shownSold(l: Line): string {
+    if (locked || !endingDirty) return l.sold_amount;
+    return fmtMoney(num(l.sold_quantity) * unitLive);
+  }
+
+  function shownUnit(l: Line): string {
+    if (locked || !endingDirty) return l.unit_cost;
+    return unitLive.toFixed(6);
+  }
+
+  function shownAmount(l: Line): string {
+    if (locked || !endingDirty) return l.amount;
+    return fmtMoney((num(l.sold_quantity) + num(l.ending_quantity)) * unitLive);
+  }
+
+  const totalAmount = lines.reduce((s, l) => s + num(shownAmount(l)), 0);
+  const totalSoldAmount = lines.reduce((s, l) => s + num(shownSold(l)), 0);
   const totalAlloc = lines.reduce((s, l) => s + num(l.allocated_amount), 0);
   const totalWriteoff = lines.reduce((s, l) => s + num(l.writeoff_amount), 0);
   const allocs = doc.allocations ?? [];
@@ -742,7 +786,7 @@ function Editor({
                     <tr key={l.product_id}>
                       <td>{productName(l.product_id)}</td>
                       <td>{l.sold_quantity}</td>
-                      <td>{l.sold_amount}</td>
+                      <td>{shownSold(l)}</td>
                       <td>
                         {locked ? (
                           l.ending_quantity
@@ -756,8 +800,8 @@ function Editor({
                         )}
                       </td>
                       <td>{locked ? l.quantity : fmtQty(produced)}</td>
-                      <td>{l.unit_cost}</td>
-                      <td>{locked ? l.amount : fmtMoney(produced * num(l.unit_cost))}</td>
+                      <td>{shownUnit(l)}</td>
+                      <td>{shownAmount(l)}</td>
                       {locked && <td>{l.allocated_amount}</td>}
                       {locked && <td>{l.writeoff_amount}</td>}
                     </tr>
@@ -768,7 +812,7 @@ function Editor({
                 <tr>
                   <td className="muted">{t("pr.total")}</td>
                   <td />
-                  <td>{fmtMoney(lines.reduce((s, l) => s + num(l.sold_amount), 0))}</td>
+                  <td>{fmtMoney(totalSoldAmount)}</td>
                   <td />
                   <td />
                   <td />

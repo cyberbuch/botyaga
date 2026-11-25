@@ -225,6 +225,36 @@ defmodule BotyagaWeb.SessionLogTest do
     assert json_response(conn, 422)["detail"] =~ "фирма"
   end
 
+  test "логът за влизания се ограничава до 20 дни" do
+    old = DateTime.utc_now() |> DateTime.add(-21 * 86_400, :second) |> DateTime.truncate(:second)
+
+    recent =
+      DateTime.utc_now() |> DateTime.add(-2 * 86_400, :second) |> DateTime.truncate(:second)
+
+    {:ok, _} =
+      Botyaga.Repo.insert(%Botyaga.Accounts.LoginEvent{
+        user_login: "old@baga.example",
+        event: "login",
+        created_at: old
+      })
+
+    {:ok, _} =
+      Botyaga.Repo.insert(%Botyaga.Accounts.LoginEvent{
+        user_login: "recent@baga.example",
+        event: "login",
+        created_at: recent
+      })
+
+    Botyaga.Accounts.LoginLog.prune()
+
+    logins =
+      Botyaga.Repo.all(Botyaga.Accounts.LoginEvent)
+      |> Enum.map(& &1.user_login)
+
+    refute "old@baga.example" in logins
+    assert "recent@baga.example" in logins
+  end
+
   test "дълъг вход не събаря заявката" do
     conn = login(String.duplicate("a", 400), "парола-123")
     assert json_response(conn, 401)

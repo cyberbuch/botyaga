@@ -416,6 +416,7 @@ export const bgB = {
   "users.no_memberships": "няма членства",
   "users.revoke_sessions": "Прекрати сесиите",
   "users.revoke_confirm": "Да се прекратят ли всички сесии на този потребител?",
+  "users.sessions_retention": "Логът за влизания пази само последните 20 дни.",
   "users.sessions_revoked": "Сесиите са прекратени",
   "sessions.time": "Време",
   "sessions.user": "Потребител",

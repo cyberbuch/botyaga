@@ -423,7 +423,9 @@ function UsersInner() {
 
       {tab === "sessions" && (
         <div className="card">
-          <div className="content" style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingBottom: 0 }}>
+          <div className="content" style={{ paddingBottom: 0 }}>
+            <p className="muted" style={{ margin: "0 0 8px" }}>{t("users.sessions_retention")}</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <input
               className="input"
               style={{ maxWidth: 260 }}
@@ -450,6 +452,7 @@ function UsersInner() {
                 </option>
               ))}
             </select>
+            </div>
           </div>
           {evLoading ? (
             <div className="content muted">{t("common.loading")}</div>
