@@ -36,6 +36,7 @@ const NAV_ITEMS = [
   { href: "/material-issues", key: "nav.material_issues", perm: "stock" },
   { href: "/stock", key: "nav.stock", perm: "stock" },
   { href: "/production", key: "nav.production", perm: "production" },
+  { href: "/production-receipts", key: "nav.production_receipts", perm: "production" },
   { href: "/journal", key: "nav.journal", perm: "journal" },
   { href: "/reports", key: "nav.reports", perm: "reports" },
   { href: "/audit", key: "nav.audit", perm: "reports" },

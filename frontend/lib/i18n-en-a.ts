@@ -35,6 +35,7 @@ export const enA = {
   "nav.material_issues": "Material issues",
   "nav.stock": "Warehouse",
   "nav.production": "Production",
+  "nav.production_receipts": "Production receipts",
   "mfg.title": "Production",
   "mfg.hint": "A recipe lists materials per output quantity. Confirming an order issues the materials and receives the finished goods using the rules on the Warehouse settings tab.",
   "mfg.tab.orders": "Orders",

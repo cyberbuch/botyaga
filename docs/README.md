@@ -19,6 +19,7 @@ API (Elixir + Phoenix) и интерфейс (Next.js), което покрив�
 | [accounting.md](accounting.md) | Ядро: фирми, сметкоплан, фактури, дневник, периоди, приключване |
 | [vat-banking.md](vat-banking.md) | ДДС, банки, дълготрайни активи |
 | [stock-production.md](stock-production.md) | Склад, производство, дивиденти |
+| [production-receipts.md](production-receipts.md) | Доклад: ръчен приход на продукция по поръчка |
 | [reports-saft.md](reports-saft.md) | Справки, финансови отчети, SAF-T, одит |
 | [printing-ubl.md](printing-ubl.md) | Печат, UBL, курсове, VIES, адреси, OCR |
 | [frontend.md](frontend.md) | Интерфейс: страници, авторизация, i18n, тестове |

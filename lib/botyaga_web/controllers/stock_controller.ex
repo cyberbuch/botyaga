@@ -2,7 +2,7 @@ defmodule BotyagaWeb.StockController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Printing, Stock}
-  alias Botyaga.Stock.{InternalDocs, MaterialIssues, Rules, Writeoff}
+  alias Botyaga.Stock.{InternalDocs, MaterialIssues, ProductionReceipts, Rules, Writeoff}
   alias BotyagaWeb.{Render, Respond}
 
   def rules(conn, _params) do
@@ -127,6 +127,87 @@ defmodule BotyagaWeb.StockController do
   def material_issue_unpost(conn, %{"id" => id}) do
     with {:ok, company_id} <- active(conn),
          {:ok, doc} <- MaterialIssues.unpost(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Ръчен приход на продукция
+
+  def production_receipt_preview(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, data} <- ProductionReceipts.preview(company_id, params) do
+      Respond.ok(conn, data)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipts(conn, params) do
+    with {:ok, company_id} <- active(conn) do
+      company_id
+      |> ProductionReceipts.index()
+      |> Render.page(params)
+      |> then(&Respond.ok(conn, &1))
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_show(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <- ProductionReceipts.show(company_id, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_create(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           ProductionReceipts.create(company_id, conn.assigns.current_user.username, params) do
+      Respond.ok(conn, doc, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_update(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           ProductionReceipts.update(company_id, conn.assigns.current_user.username, id, params) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_delete(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, nil} <-
+           ProductionReceipts.delete(company_id, conn.assigns.current_user.username, id) do
+      Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_confirm(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           ProductionReceipts.confirm(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def production_receipt_unpost(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, doc} <-
+           ProductionReceipts.unpost(company_id, conn.assigns.current_user.username, id) do
       Respond.ok(conn, doc)
     else
       error -> Respond.error(conn, error)

@@ -223,6 +223,15 @@ defmodule BotyagaWeb.Router do
     post "/material-issues/:id/confirm", StockController, :material_issue_confirm
     post "/material-issues/:id/unpost", StockController, :material_issue_unpost
 
+    get "/production-receipts/preview", StockController, :production_receipt_preview
+    get "/production-receipts", StockController, :production_receipts
+    post "/production-receipts", StockController, :production_receipt_create
+    get "/production-receipts/:id", StockController, :production_receipt_show
+    patch "/production-receipts/:id", StockController, :production_receipt_update
+    delete "/production-receipts/:id", StockController, :production_receipt_delete
+    post "/production-receipts/:id/confirm", StockController, :production_receipt_confirm
+    post "/production-receipts/:id/unpost", StockController, :production_receipt_unpost
+
     get "/internal-docs/next-number", StockController, :internal_doc_next_number
     get "/internal-docs", StockController, :internal_docs
     post "/internal-docs", StockController, :internal_doc_create

@@ -154,6 +154,7 @@ defmodule BotyagaWeb.Plugs.Gate do
 
   defp segment_permission(_method, "recipes", _), do: {:key, "production"}
   defp segment_permission(_method, "production-orders", _), do: {:key, "production"}
+  defp segment_permission(_method, "production-receipts", _), do: {:key, "production"}
   defp segment_permission(_method, "dividend-distributions", _), do: {:key, "dividends"}
   defp segment_permission(_method, "dividends", _), do: {:key, "dividends"}
   defp segment_permission(_method, "reports", _), do: {:key, "reports"}
@@ -165,6 +166,9 @@ defmodule BotyagaWeb.Plugs.Gate do
   defp segment_permission(_method, "audit-logs", ["material_issue" | _]), do: {:key, "stock"}
 
   defp segment_permission(_method, "audit-logs", ["production_order" | _]),
+    do: {:key, "production"}
+
+  defp segment_permission(_method, "audit-logs", ["production_receipt" | _]),
     do: {:key, "production"}
 
   defp segment_permission(_method, "audit-logs", ["bank_tx" | _]), do: {:key, "banking"}
