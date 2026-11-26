@@ -90,16 +90,13 @@ defmodule Botyaga.Saft.Mode do
         end
       end)
 
-    if body == "" do
-      ""
-    else
-      Xml.open("Payments") <>
-        Xml.text("NumberOfEntries", Integer.to_string(n)) <>
-        Xml.text("TotalDebit", Dec.money(debit)) <>
-        Xml.text("TotalCredit", Dec.money(credit)) <>
-        body <>
-        Xml.close("Payments")
-    end
+    # XSD изисква Payments винаги — дори при месец без плащане.
+    Xml.open("Payments") <>
+      Xml.text("NumberOfEntries", Integer.to_string(n)) <>
+      Xml.text("TotalDebit", Dec.money(debit)) <>
+      Xml.text("TotalCredit", Dec.money(credit)) <>
+      body <>
+      Xml.close("Payments")
   end
 
   defp flip("D"), do: "C"

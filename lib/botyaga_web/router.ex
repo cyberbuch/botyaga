@@ -271,6 +271,7 @@ defmodule BotyagaWeb.Router do
     post "/fs/formulas/clear", FsController, :clear
 
     get "/saft/export", SaftController, :export
+    get "/saft/preview", SaftController, :preview
     get "/saft/movement-mappings", SaftController, :mappings_index
     post "/saft/movement-mappings", SaftController, :mappings_create
     post "/saft/movement-mappings/defaults", SaftController, :mappings_defaults

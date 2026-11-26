@@ -19,6 +19,16 @@ defmodule BotyagaWeb.SaftController do
     end
   end
 
+  # XML + списък от грешки/предупреждения (експортът продължава, но проблемите са видими).
+  def preview(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, result} <- Saft.preview(company_id, params) do
+      Respond.ok(conn, result)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   def mappings_index(conn, params) do
     with {:ok, company_id} <- active(conn),
          {:ok, data} <- Mappings.index(company_id, Map.get(params, "kind", "")) do

@@ -131,8 +131,7 @@ defmodule Botyaga.Saft.Src do
      wrap("PurchaseInvoices", np, debit, 0, purchases)}
   end
 
-  defp wrap(_tag, _n, _debit, _credit, ""), do: ""
-
+  # XSD изисква SalesInvoices / Payments / PurchaseInvoices винаги — дори празни.
   defp wrap(tag, n, debit, credit, body) do
     Xml.open(tag) <>
       Xml.text("NumberOfEntries", Integer.to_string(n)) <>

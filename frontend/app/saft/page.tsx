@@ -24,6 +24,13 @@ function SaftInner() {
   const [to, setTo] = useState(today());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [valBusy, setValBusy] = useState(false);
+  const [validation, setValidation] = useState<null | {
+    valid: boolean;
+    errors: { code: string; message: string }[];
+    warnings: { code: string; message: string }[];
+    counts: Record<string, number>;
+  }>(null);
 
   const period =
     mode === "annual" ? `${year}-01-01` : mode === "monthly" ? `${month}-01` : `${to.slice(0, 7)}-01`;
@@ -62,6 +69,30 @@ function SaftInner() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleValidate = async () => {
+    if (!ready) return;
+    setValBusy(true);
+    setError("");
+    try {
+      const token = getToken();
+      const range = mode === "ondemand" ? `&date_from=${from}&date_to=${to}` : "";
+      const res = await fetch(
+        `${API_BASE}/v1/saft/preview?period=${encodeURIComponent(period)}&mode=${mode}${range}`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+      );
+      if (!res.ok) {
+        setError(await res.text() || String(res.status));
+        return;
+      }
+      const data = await res.json();
+      setValidation(data.validation);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setValBusy(false);
     }
   };
 
@@ -176,6 +207,14 @@ function SaftInner() {
         {error && <div className="error-text">{error}</div>}
         <div className="form-actions">
           <button
+            type="button"
+            className="btn"
+            onClick={handleValidate}
+            disabled={valBusy || busy || !ready}
+          >
+            {valBusy ? t("common.loading") : t("saft.validate")}
+          </button>
+          <button
             className="btn btn-primary"
             onClick={handleDownload}
             disabled={busy || !ready}
@@ -184,6 +223,42 @@ function SaftInner() {
           </button>
         </div>
       </div>
+
+      {validation && (
+        <div className="card content" style={{ marginTop: 12 }}>
+          <h2 className="invoice-section-title">
+            {validation.valid ? t("saft.valid") : t("saft.invalid")}
+          </h2>
+          <p className="muted" style={{ margin: "0 0 8px" }}>
+            {Object.entries(validation.counts)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(" · ")}
+          </p>
+          {validation.errors.length === 0 && validation.warnings.length === 0 && (
+            <div className="content">{t("saft.no_issues")}</div>
+          )}
+          {validation.errors.length > 0 && (
+            <>
+              <h3 style={{ margin: "8px 0" }}>{t("saft.errors")}</h3>
+              {validation.errors.map((e, i) => (
+                <div key={`${e.code}/${i}`} className="error-text">
+                  {e.message}
+                </div>
+              ))}
+            </>
+          )}
+          {validation.warnings.length > 0 && (
+            <>
+              <h3 style={{ margin: "8px 0" }}>{t("saft.warnings")}</h3>
+              {validation.warnings.map((w, i) => (
+                <div key={`${w.code}/${i}`} className="muted">
+                  {w.message}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

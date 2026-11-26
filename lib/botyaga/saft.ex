@@ -6,7 +6,7 @@ defmodule Botyaga.Saft do
   """
 
   alias Botyaga.Dec
-  alias Botyaga.Saft.{Annual, GL, Load, Mode, Moves, Ownership, Src, Xml}
+  alias Botyaga.Saft.{Annual, GL, Load, Mode, Moves, Ownership, Src, Validate, Xml}
   alias Botyaga.Stock.Replay
 
   @ns "mf:nra:dgti:dxxxx:declaration:v1"
@@ -31,6 +31,15 @@ defmodule Botyaga.Saft do
 
           {:ok, %{xml: xml, filename: "saft_#{period}_#{mode}.xml"}}
         end
+    end
+  end
+
+  @doc "Експорт плюс валидация: връща XML с errors/warnings, но не спира извеждането."
+  def preview(company_id, params) do
+    with {:ok, result} <- export(company_id, params),
+         {:ok, snap} <- Load.load(company_id) do
+      validation = Validate.validate(result.xml, snap, str(params, "mode"))
+      {:ok, Map.put(result, :validation, validation)}
     end
   end
 

@@ -249,6 +249,7 @@ JSON API на Phoenix, порт `8093`. Клиентът говори с нег�
 | GET / PUT | `/v1/fs/formulas` | формули |
 | POST | `/v1/fs/formulas/defaults`, `/validate`, `/clear` | шаблони / проверка / изчистване |
 | GET | `/v1/saft/export` | SAF-T XML (`period`, `mode=monthly\|annual\|ondemand`, `date_from`, `date_to`) |
+| GET | `/v1/saft/preview` | същият XML + валидация (`errors`, `warnings`, `counts`, `valid`) |
 | GET / POST | `/v1/saft/movement-mappings` | Дт/Кт → тип движение |
 | POST | `/v1/saft/movement-mappings/defaults` | примерни съответствия |
 | PATCH / DELETE | `/v1/saft/movement-mappings/:id` | редакция / изтриване |
