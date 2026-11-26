@@ -7,16 +7,34 @@ defmodule BotyagaWeb.SaftController do
   alias Botyaga.Saft.Mappings
   alias BotyagaWeb.Respond
 
+  # Големите XML-и се изпращат поточно, на части (chunked), без един огромен отговор.
   def export(conn, params) do
     with {:ok, company_id} <- active(conn),
-         {:ok, result} <- Saft.export(company_id, params) do
+         {:ok, result} <- Saft.export_parts(company_id, params) do
+      conn =
+        conn
+        |> put_resp_header("content-type", "application/xml; charset=utf-8")
+        |> put_resp_header("content-disposition", "attachment; filename=\"#{result.filename}\"")
+
       conn
-      |> put_resp_header("content-type", "application/xml; charset=utf-8")
-      |> put_resp_header("content-disposition", "attachment; filename=\"#{result.filename}\"")
-      |> send_resp(200, result.xml)
+      |> send_chunked(200)
+      |> stream_parts(result.parts)
     else
       error -> Respond.error(conn, error)
     end
+  end
+
+  defp stream_parts(conn, parts) do
+    conn =
+      Enum.reduce_while(parts, conn, fn part, conn ->
+        case Plug.Conn.chunk(conn, part) do
+          {:ok, conn} -> {:cont, conn}
+          {:error, _} -> {:halt, conn}
+        end
+      end)
+
+    {:ok, conn} = Plug.Conn.chunk(conn, "")
+    conn
   end
 
   # XML + списък от грешки/предупреждения (експортът продължава, но проблемите са видими).

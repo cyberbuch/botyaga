@@ -11,7 +11,17 @@ defmodule Botyaga.Saft do
 
   @ns "mf:nra:dgti:dxxxx:declaration:v1"
 
+  # Целият XML успява да стане голям; експортът връща списък от части, за да може
+  # свалянето да тече поточно (send_chunked), без един огромен отговор.
   def export(company_id, params) do
+    case export_parts(company_id, params) do
+      {:ok, result} -> {:ok, Map.put(result, :xml, Enum.join(result.parts))}
+      error -> error
+    end
+  end
+
+  @doc "Същият експорт, но като поредица от части за поточно сваляне."
+  def export_parts(company_id, params) do
     period = params |> str("period") |> String.trim()
 
     case parse_period(period) do
@@ -23,13 +33,13 @@ defmodule Botyaga.Saft do
 
         with {:ok, snap} <- Load.load(company_id),
              {:ok, range} <- range_of(mode, params) do
-          xml =
+          parts =
             case range do
-              nil -> build(snap, period, year, month, mode)
-              {from, to} -> build_ranged(snap, period, company_id, from, to)
+              nil -> build_parts(snap, period, year, month, mode)
+              {from, to} -> build_ranged_parts(snap, period, company_id, from, to)
             end
 
-          {:ok, %{xml: xml, filename: "saft_#{period}_#{mode}.xml"}}
+          {:ok, %{parts: parts, filename: "saft_#{period}_#{mode}.xml"}}
         end
     end
   end
@@ -48,36 +58,38 @@ defmodule Botyaga.Saft do
 
   defp range_of(_mode, _params), do: {:ok, nil}
 
-  defp build(s, period, year, month, mode) do
+  defp build_parts(s, period, year, month, mode) do
     body =
       case mode do
-        "annual" -> Annual.annual_xml(s, year)
-        "ondemand" -> Moves.ondemand_xml(s)
-        _ -> monthly(s, year, month)
+        "annual" -> [Annual.annual_xml(s, year)]
+        "ondemand" -> [Moves.ondemand_xml(s)]
+        _ -> monthly_parts(s, year, month)
       end
 
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>
-      "<nsSAFT:AuditFile xmlns:nsSAFT=\"#{@ns}\">" <>
-      header(s, period, year, month, mode, nil) <>
-      body <>
-      "</nsSAFT:AuditFile>"
+    [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+      "<nsSAFT:AuditFile xmlns:nsSAFT=\"#{@ns}\">",
+      header(s, period, year, month, mode, nil)
+    ] ++ body ++ ["</nsSAFT:AuditFile>"]
   end
 
-  defp monthly(s, year, month) do
+  defp monthly_parts(s, year, month) do
     {sales, buys} = Src.invoices_xml(s, year, month)
 
-    Xml.open("MasterFilesMonthly") <>
-      GL.accounts_xml(s, year, month) <>
-      Src.parties_xml(s, year, month) <>
-      Mode.tax_table() <>
-      Mode.uom_products(s) <>
-      Xml.close("MasterFilesMonthly") <>
-      GL.entries_xml(s, year, month) <>
-      Xml.open("SourceDocumentsMonthly") <>
-      sales <>
-      Mode.payments_xml(s, year, month) <>
-      buys <>
+    [
+      Xml.open("MasterFilesMonthly"),
+      GL.accounts_xml(s, year, month),
+      Src.parties_xml(s, year, month),
+      Mode.tax_table(),
+      Mode.uom_products(s),
+      Xml.close("MasterFilesMonthly"),
+      GL.entries_xml(s, year, month),
+      Xml.open("SourceDocumentsMonthly"),
+      sales,
+      Mode.payments_xml(s, year, month),
+      buys,
       Xml.close("SourceDocumentsMonthly")
+    ]
   end
 
   defp ondemand_range(from, to) when is_nil(from) or is_nil(to), do: {:ok, nil}
@@ -93,18 +105,20 @@ defmodule Botyaga.Saft do
     end
   end
 
-  defp build_ranged(s, period, cid, from, to) do
+  defp build_ranged_parts(s, period, cid, from, to) do
     {:ok, open} = stock_map(cid, Date.add(from, -1))
     {:ok, close} = stock_map(cid, to)
     from_s = Date.to_iso8601(from)
     to_s = Date.to_iso8601(to)
     span = {from.month, from.year, to.month, to.year}
 
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" <>
-      "<nsSAFT:AuditFile xmlns:nsSAFT=\"#{@ns}\">" <>
-      header(s, period, to.year, to.month, "ondemand", span) <>
-      Moves.ondemand_xml_ranged(s, open, close, from_s, to_s) <>
+    [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n",
+      "<nsSAFT:AuditFile xmlns:nsSAFT=\"#{@ns}\">",
+      header(s, period, to.year, to.month, "ondemand", span),
+      Moves.ondemand_xml_ranged(s, open, close, from_s, to_s),
       "</nsSAFT:AuditFile>"
+    ]
   end
 
   defp stock_map(cid, day) do
