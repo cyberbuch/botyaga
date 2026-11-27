@@ -18,7 +18,7 @@ defmodule Botyaga.Stock.ProductionReceipts do
 
   import Ecto.Query
 
-  alias Botyaga.{Audit, Catalog, Dec, Journal, Params, Periods, Repo}
+  alias Botyaga.{Attachments, Audit, Catalog, Dec, Journal, Params, Periods, Repo}
   alias Botyaga.Catalog.Account
   alias Botyaga.Invoicing.{Invoice, InvoiceLine}
   alias Botyaga.Journal.Entry
@@ -191,6 +191,7 @@ defmodule Botyaga.Stock.ProductionReceipts do
       Repo.delete_all(from(l in ProductionReceiptLine, where: l.doc_id == ^doc.id))
       Repo.delete_all(from(a in ProductionReceiptAllocation, where: a.doc_id == ^doc.id))
       Repo.delete!(doc)
+      Attachments.delete_for(company_id, "production_receipt", id)
 
       Audit.record(
         company_id,

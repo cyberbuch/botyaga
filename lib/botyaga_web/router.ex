@@ -268,6 +268,10 @@ defmodule BotyagaWeb.Router do
     patch "/recipes/:id", ProductionController, :recipe_update
     delete "/recipes/:id", ProductionController, :recipe_delete
 
+    get "/attachments/:doc_type/:doc_id", AttachmentsController, :index
+    post "/attachments/:doc_type/:doc_id", AttachmentsController, :create
+    get "/attachments/:id/download", AttachmentsController, :download
+    delete "/attachments/:id", AttachmentsController, :delete
     get "/kits", StockController, :kits
     post "/kits", StockController, :kit_create
     get "/kits/:id", StockController, :kit
@@ -275,6 +279,10 @@ defmodule BotyagaWeb.Router do
     delete "/kits/:id", StockController, :kit_delete
     post "/kits/:id/confirm", StockController, :kit_confirm
     post "/kits/:id/unpost", StockController, :kit_unpost
+    get "/production-orders/:id/pdf", ProductionController, :order_pdf
+    get "/production-cards/:id/pdf", ProductionController, :card_pdf
+    get "/production-receipts/:id/pdf", StockController, :receipt_pdf
+    get "/kits/:id/pdf", StockController, :kit_pdf
     get "/production-cards", ProductionController, :cards
     post "/production-cards", ProductionController, :card_create
     get "/production-cards/:id", ProductionController, :card

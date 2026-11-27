@@ -3,6 +3,7 @@ defmodule BotyagaWeb.StockController do
 
   alias Botyaga.{Companies, Printing, Stock}
   alias Botyaga.Stock.{Kits, InternalDocs, MaterialIssues, ProductionReceipts, Rules, Writeoff}
+  alias Botyaga.Printing.Protocol
   alias BotyagaWeb.{Render, Respond}
 
   def rules(conn, _params) do
@@ -346,6 +347,21 @@ defmodule BotyagaWeb.StockController do
     with {:ok, company_id} <- active(conn),
          {:ok, k} <- Kits.unpost(company_id, conn.assigns.current_user.username, id) do
       Respond.ok(conn, k)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def receipt_pdf(conn, %{"id" => id}), do: pdf(conn, "production_receipt", id)
+  def kit_pdf(conn, %{"id" => id}), do: pdf(conn, "kit", id)
+
+  defp pdf(conn, kind, id) do
+    with {:ok, cid} <- active(conn),
+         {:ok, r} <- Protocol.render(cid, kind, id) do
+      conn
+      |> put_resp_header("content-type", r.mime)
+      |> put_resp_header("content-disposition", ~s(attachment; filename="#{r.filename}"))
+      |> send_resp(200, r.bytes)
     else
       error -> Respond.error(conn, error)
     end

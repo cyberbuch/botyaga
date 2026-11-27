@@ -3,6 +3,7 @@ defmodule BotyagaWeb.ProductionController do
 
   alias Botyaga.Companies
   alias Botyaga.Production.{Cards, Orders, Recipes}
+  alias Botyaga.Printing.Protocol
   alias BotyagaWeb.{Render, Respond}
 
   ## Рецепти
@@ -135,6 +136,26 @@ defmodule BotyagaWeb.ProductionController do
 
   def card_unpost(conn, %{"id" => id}) do
     with {:ok, cid} <- active(conn), {:ok, c} <- Cards.unpost(cid, id), do: Respond.ok(conn, c)
+  end
+
+  def order_pdf(conn, %{"id" => id}) do
+    pdf(conn, "production_order", id)
+  end
+
+  def card_pdf(conn, %{"id" => id}) do
+    pdf(conn, "production_card", id)
+  end
+
+  defp pdf(conn, kind, id) do
+    with {:ok, cid} <- active(conn),
+         {:ok, r} <- Protocol.render(cid, kind, id) do
+      conn
+      |> put_resp_header("content-type", r.mime)
+      |> put_resp_header("content-disposition", ~s(attachment; filename="#{r.filename}"))
+      |> send_resp(200, r.bytes)
+    else
+      error -> Respond.error(conn, error)
+    end
   end
 
   defp active(conn) do

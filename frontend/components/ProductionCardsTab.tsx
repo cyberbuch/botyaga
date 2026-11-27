@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, fetchAll } from "../lib/api";
 import { useI18n } from "./I18nProvider";
+import { DocExtras } from "./DocExtras";
 
 interface Account { id: number; number: string; name: string }
 interface Product { id: number; name: string }
@@ -167,6 +168,7 @@ export function ProductionCardsTab() {
             {editing.id > 0 && editing.status === "draft" && <button className="btn" onClick={save}>{t("common.save")}</button>}
             {editing.id > 0 && editing.status === "draft" && <button className="btn btn-primary" onClick={() => act(`/v1/production-cards/${editing.id}/confirm`)}>{t("pc.confirm")}</button>}
           </div>
+          {editing.id > 0 && <DocExtras docType="production_card" docId={editing.id} pdfPath={`/v1/production-cards/${editing.id}/pdf`} />}
         </div>
       )}
     </div>

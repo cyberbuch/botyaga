@@ -6,6 +6,7 @@ import { useI18n } from "../../components/I18nProvider";
 import { ACTIVE_COMPANY_EVENT, api, fetchAll } from "../../lib/api";
 import { Pagination } from "../../components/Pagination";
 import { AuditHistoryPanel, AuditStampBadge } from "../../components/AuditHistory";
+import { DocExtras } from "../../components/DocExtras";
 import { AuditEntry } from "../../lib/invoice";
 
 const PAGE_SIZE = 50;
@@ -717,6 +718,8 @@ function Editor({
           editCount={doc.edit_count}
         />
       </div>
+
+      <DocExtras docType="production_receipt" docId={doc.id} pdfPath={`/v1/production-receipts/${doc.id}/pdf`} />
 
       <div className="card card-pad" style={{ marginBottom: 12 }}>
         <div className="form-grid">

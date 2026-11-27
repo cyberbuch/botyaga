@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, fetchAll } from "../lib/api";
 import { useI18n } from "./I18nProvider";
 import { CompanyLocation, fetchCompanyLocations } from "../lib/locations";
+import { DocExtras } from "./DocExtras";
 
 interface Product { id: number; name: string; inventory_account_id: number }
 interface Account { id: number; number: string }
@@ -163,6 +164,7 @@ export function ProductionKitsTab() {
             {editing.status === "draft" && <button className="btn" onClick={save}>{t("common.save")}</button>}
             {editing.id > 0 && editing.status === "draft" && <button className="btn btn-primary" onClick={() => act(`/v1/kits/${editing.id}/confirm`)}>{t("kit.confirm")}</button>}
           </div>
+          {editing.id > 0 && <DocExtras docType="kit" docId={editing.id} pdfPath={`/v1/kits/${editing.id}/pdf`} />}
         </div>
       )}
     </div>

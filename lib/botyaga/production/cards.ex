@@ -8,7 +8,7 @@ defmodule Botyaga.Production.Cards do
 
   import Ecto.Query
 
-  alias Botyaga.{Catalog, Dec, Journal, Params, Repo}
+  alias Botyaga.{Attachments, Catalog, Dec, Journal, Params, Repo}
   alias Botyaga.Production.{Card, CardProduct}
 
   def list(company_id) do
@@ -73,6 +73,7 @@ defmodule Botyaga.Production.Cards do
   def delete(company_id, id) do
     with {:ok, c} <- fetch_draft(company_id, id) do
       Repo.delete!(c)
+      Attachments.delete_for(company_id, "production_card", id)
       {:ok, nil}
     end
   end
@@ -86,6 +87,7 @@ defmodule Botyaga.Production.Cards do
 
   def confirm(company_id, id) do
     with {:ok, c} <- fetch_draft(company_id, id),
+         :ok <- accounts_present(c),
          pv = compute(c),
          :ok <- no_errors(pv),
          :ok <- has_products(pv) do
@@ -359,6 +361,19 @@ defmodule Botyaga.Production.Cards do
 
   defp ok404(nil), do: {:error, {404, "картата не е намерена"}}
   defp ok404(c), do: {:ok, c}
+
+  defp accounts_present(c) do
+    cond do
+      c.production_account_id <= 0 ->
+        {:error, {422, "липсва сметка 611 (производство) — задайте я в сметкоплана"}}
+
+      c.materials_account_id <= 0 ->
+        {:error, {422, "липсва сметка 601 (материали) — задайте я в сметкоплана"}}
+
+      true ->
+        :ok
+    end
+  end
 
   defp no_errors(%{errors: []}), do: :ok
   defp no_errors(_), do: {:error, {422, "прегледът има грешки"}}

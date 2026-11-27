@@ -7,7 +7,7 @@ defmodule Botyaga.Stock.Kits do
 
   import Ecto.Query
 
-  alias Botyaga.{Audit, Catalog, Dec, Params, Periods, Repo}
+  alias Botyaga.{Attachments, Audit, Catalog, Dec, Params, Periods, Repo}
   alias Botyaga.Stock.{Kit, KitLine, Replay}
 
   @doc_type "kit"
@@ -108,6 +108,7 @@ defmodule Botyaga.Stock.Kits do
   def delete(company_id, sub, id) do
     with {:ok, k} <- fetch_draft(company_id, id) do
       Repo.delete!(k)
+      Attachments.delete_for(company_id, "kit", id)
 
       Audit.record(
         company_id,

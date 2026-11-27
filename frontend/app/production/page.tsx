@@ -6,6 +6,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProductionCardsTab } from "../../components/ProductionCardsTab";
 import { ProductionKitsTab } from "../../components/ProductionKitsTab";
+import { DocExtras } from "../../components/DocExtras";
 import { api, fetchAll } from "../../lib/api";
 import { formatBgDate, todayIso } from "../../lib/dates";
 import { fetchCompanyLocations, CompanyLocation } from "../../lib/locations";
@@ -329,6 +330,7 @@ function ProductionInner() {
             </p>
           )}
         </div>
+        <DocExtras docType="production_order" docId={detail.id} pdfPath={`/v1/production-orders/${detail.id}/pdf`} />
         <div className="card">
           <div className="content table-wrap">
             <table className="table">

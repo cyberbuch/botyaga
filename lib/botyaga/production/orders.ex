@@ -6,7 +6,7 @@ defmodule Botyaga.Production.Orders do
 
   import Ecto.Query
 
-  alias Botyaga.{Audit, Catalog, Companies, Dec, Params, Periods, Repo}
+  alias Botyaga.{Attachments, Audit, Catalog, Companies, Dec, Params, Periods, Repo}
   alias Botyaga.Production.{Order, OrderLine, Recipes}
   alias Botyaga.Stock.{Replay, Rules}
 
@@ -89,6 +89,7 @@ defmodule Botyaga.Production.Orders do
          :ok <- draft(order) do
       Repo.delete_all(from(l in OrderLine, where: l.order_id == ^order.id))
       Repo.delete!(order)
+      Attachments.delete_for(company_id, "production_order", id)
 
       Audit.record(
         company_id,
