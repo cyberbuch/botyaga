@@ -57,7 +57,8 @@ defmodule Botyaga.Production.Orders do
                 status: "draft",
                 notes: notes,
                 material_cost: "0.00",
-                journal_entry_id: 0
+                journal_entry_id: 0,
+                recipe_snapshot: snapshot(recipe)
               })
 
             order = Repo.update!(Ecto.Changeset.change(order, number: "ПР-#{order.id}"))
@@ -165,6 +166,38 @@ defmodule Botyaga.Production.Orders do
     end
   end
 
+  @doc "Копие на поръчка: същите продукти/количества по рецепта, с днешна дата. Ръчните корекции остават само в оригинала."
+  def copy(company_id, sub, id) do
+    with {:ok, order} <- fetch(company_id, id) do
+      create(company_id, sub, %{
+        "recipe_id" => order.recipe_id,
+        "quantity" => order.quantity,
+        "order_date" => Date.to_iso8601(Date.utc_today()),
+        "location_id" => order.location_id,
+        "notes" => "Копие на #{order.number}"
+      })
+    end
+  end
+
+  defp snapshot(recipe) do
+    Jason.encode!(%{
+      output_qty: recipe.output_qty,
+      lines:
+        Enum.map(recipe.lines, fn l ->
+          %{product_id: l.product_id, quantity: l.quantity, unit: l.unit, wastage: l.wastage}
+        end)
+    })
+  end
+
+  defp decode_snapshot(nil), do: nil
+
+  defp decode_snapshot(raw) do
+    case Jason.decode(raw) do
+      {:ok, m} -> m
+      _ -> nil
+    end
+  end
+
   defp one(order, with_lines) do
     base = %{
       id: order.id,
@@ -179,6 +212,8 @@ defmodule Botyaga.Production.Orders do
       material_cost: order.material_cost,
       journal_entry_id: order.journal_entry_id
     }
+
+    base = Map.put(base, :recipe_snapshot, decode_snapshot(order.recipe_snapshot))
 
     if with_lines, do: Map.put(base, :lines, lines_json(order.id)), else: base
   end
@@ -196,6 +231,7 @@ defmodule Botyaga.Production.Orders do
         product_id: l.product_id,
         product_name: l.product_name,
         quantity: l.quantity,
+        norm_quantity: l.norm_quantity,
         unit: l.unit,
         unit_cost: l.unit_cost,
         amount: l.amount
@@ -213,6 +249,7 @@ defmodule Botyaga.Production.Orders do
         product_id: line.product_id,
         product_name: name,
         quantity: need,
+        norm_quantity: need,
         unit: line.unit,
         unit_cost: "0.000000",
         amount: "0.00"

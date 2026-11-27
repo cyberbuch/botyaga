@@ -52,6 +52,7 @@ interface OrderLine {
   product_id: number;
   product_name: string;
   quantity: string;
+  norm_quantity?: string;
   unit: string;
   unit_cost: string;
   amount: string;
@@ -68,6 +69,7 @@ interface Order {
   status: string;
   notes: string;
   material_cost: string;
+  recipe_snapshot?: { output_qty: string; lines: { product_id: number; quantity: string; wastage: string }[] } | null;
   lines?: OrderLine[];
 }
 
@@ -263,6 +265,16 @@ function ProductionInner() {
     }
   };
 
+  const copyOrder = async (id: number) => {
+    try {
+      const o = await api.post<Order>(`/v1/production-orders/${id}/copy`, {});
+      await load();
+      setDetail(o);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
   const locName = (id: number) => locations.find((l) => l.id === id)?.name ?? String(id);
 
   const filteredRecipes = useMemo(() => {
@@ -304,6 +316,7 @@ function ProductionInner() {
           </h1>
           <div className="icon-actions">
             <button className="btn" onClick={() => setDetail(null)}>{t("common.back")}</button>
+            <button className="btn" onClick={() => void copyOrder(detail.id)}>{t("mfg.copy")}</button>
             {detail.status === "draft" && (
               <>
                 <button className="btn btn-primary" disabled={saving} onClick={() => void confirmOrder(detail.id)}>
@@ -338,6 +351,7 @@ function ProductionInner() {
                 <tr>
                   <th>{t("mfg.material")}</th>
                   <th className="num">{t("mfg.qty")}</th>
+                  <th className="num">{t("mfg.norm")}</th>
                   <th>{t("mfg.unit")}</th>
                   <th className="num">{t("mfg.unit_cost")}</th>
                   <th className="num">{t("mfg.amount")}</th>
@@ -348,6 +362,7 @@ function ProductionInner() {
                   <tr key={l.id}>
                     <td>{l.product_name || pname(products, l.product_id)}</td>
                     <td className="num">{money(l.quantity)}</td>
+                    <td className="num">{money(l.norm_quantity)}</td>
                     <td>{unitSymbol(l.unit)}</td>
                     <td className="num">{money(l.unit_cost)}</td>
                     <td className="num">{money(l.amount)}</td>

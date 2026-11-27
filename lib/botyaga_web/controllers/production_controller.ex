@@ -138,6 +138,15 @@ defmodule BotyagaWeb.ProductionController do
     with {:ok, cid} <- active(conn), {:ok, c} <- Cards.unpost(cid, id), do: Respond.ok(conn, c)
   end
 
+  def order_copy(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn),
+         {:ok, o} <- Orders.copy(cid, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, o, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
   def order_pdf(conn, %{"id" => id}) do
     pdf(conn, "production_order", id)
   end

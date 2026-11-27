@@ -279,6 +279,7 @@ defmodule BotyagaWeb.Router do
     delete "/kits/:id", StockController, :kit_delete
     post "/kits/:id/confirm", StockController, :kit_confirm
     post "/kits/:id/unpost", StockController, :kit_unpost
+    post "/production-orders/:id/copy", ProductionController, :order_copy
     get "/production-orders/:id/pdf", ProductionController, :order_pdf
     get "/production-cards/:id/pdf", ProductionController, :card_pdf
     get "/production-receipts/:id/pdf", StockController, :receipt_pdf

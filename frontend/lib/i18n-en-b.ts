@@ -150,6 +150,8 @@ export const enB = {
   "att.pdf": "PDF protocol",
   "att.attach": "Attach file",
   "att.empty": "No attachments",
+  "mfg.copy": "Copy",
+  "mfg.norm": "Norm (applied recipe)",
   "kit.tab": "Kitting",
   "kit.title": "Kitting of goods and production",
   "kit.new": "New kit",
