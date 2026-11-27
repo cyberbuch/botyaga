@@ -167,6 +167,10 @@ defmodule BotyagaWeb.Router do
     post "/vat/operations", VatController, :operations_create
     patch "/vat/operations/:id", VatController, :operations_update
     delete "/vat/operations/:id", VatController, :operations_delete
+    get "/oss/rates", OssController, :rates
+    post "/oss/rates", OssController, :rate_create
+    post "/oss/rates/:id/copy", OssController, :rate_copy
+    delete "/oss/rates/:id", OssController, :rate_delete
     get "/oss/reports", OssController, :reports
     post "/oss/reports", OssController, :create
     get "/oss/reports/:id", OssController, :report

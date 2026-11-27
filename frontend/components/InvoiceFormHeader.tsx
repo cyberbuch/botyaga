@@ -121,7 +121,7 @@ export function InvoiceFormHeader({
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value)}
             >
-              {docTypesFor(direction).map((dt) => (
+              {(isOss ? ["01", "02", "03", "81"] : docTypesFor(direction)).map((dt) => (
                 <option key={dt} value={dt}>
                   {dt === "proforma" ? "" : `${dt} — `}
                   {t(`invoices.document_type.${dt}`)}

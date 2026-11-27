@@ -178,6 +178,7 @@ defmodule BotyagaWeb.Render do
       id: counterpart.id,
       name: counterpart.name,
       counterpart_type: counterpart.counterpart_type,
+      is_individual: counterpart.is_individual,
       eik: counterpart.eik,
       vat_number: counterpart.vat_number,
       address: counterpart.address,

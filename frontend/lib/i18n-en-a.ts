@@ -452,6 +452,7 @@ export const enA = {
   "bank_tx.imported_pending": "Imported {n} transactions — each is booked manually with confirmation.",
   "counterparts.title": "Counterparts",
   "counterparts.name": "Name",
+  "counterparts.is_individual": "Natural person (no EIK/VAT number)",
   "counterparts.eik": "EIK",
   "counterparts.vat_number": "VAT number",
   "counterparts.address": "Address",

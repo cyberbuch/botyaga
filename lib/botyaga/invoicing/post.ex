@@ -318,9 +318,18 @@ defmodule Botyaga.Invoicing.Post do
 
   defp pick_account(company, _id, role), do: Defaults.resolve(company, role)
 
-  # OSS: чуждото ДДС отива в 4534 „ДДС по OSS режим“, не в българското 4532.
+  # OSS: чуждото ДДС отива в аналитична сметка по държава (453401 DE…), иначе 4534.
   defp vat_sale_account(company, inv, _vat_acc) when inv.is_oss == 1 do
-    acct_or_create(company, Defaults.number(company, "oss_vat"), "ДДС по OSS режим")
+    case Botyaga.Oss.Rates.resolve(company.id, inv.oss_country, inv.issue_date) do
+      %{account_id: id} when id > 0 ->
+        case Repo.get(Catalog.Account, id) do
+          nil -> acct_or_create(company, Defaults.number(company, "oss_vat"), "ДДС по OSS режим")
+          a -> {:ok, a}
+        end
+
+      _ ->
+        acct_or_create(company, Defaults.number(company, "oss_vat"), "ДДС по OSS режим")
+    end
   end
 
   defp vat_sale_account(company, _inv, vat_acc), do: pick_account(company, vat_acc, "vat_sale")

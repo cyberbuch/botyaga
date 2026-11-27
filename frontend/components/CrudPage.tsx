@@ -23,6 +23,7 @@ export interface FieldDef {
   required?: boolean;
   options?: SelectOption[];
   default?: string;
+  hidden?: (form: Record<string, string | boolean>) => boolean;
 }
 
 export interface RowAction {
@@ -268,6 +269,7 @@ export function CrudPage({ config, transport: useTransport }: { config: CrudConf
   const buildPayload = (): Record_ => {
     const payload: Record_ = {};
     for (const f of config.fields) {
+      if (f.hidden && f.hidden(form)) continue;
       const v = form[f.name];
       if (f.type === "checkbox") {
         payload[f.name] = Boolean(v);
@@ -474,7 +476,7 @@ export function CrudPage({ config, transport: useTransport }: { config: CrudConf
                 </div>
               )}
               <div className="form-grid">
-                {config.fields.map((f) => (
+                {config.fields.filter((f) => !(f.hidden && f.hidden(form))).map((f) => (
                   <div className="field" key={f.name}>
                     <label className="label">
                       {t(f.labelKey)}

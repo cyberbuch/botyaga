@@ -31,7 +31,7 @@ defmodule Botyaga.Catalog.Counterparts do
 
   def create(company_id, params) do
     with {:ok, counterpart} <- apply_params(%Counterpart{company_id: company_id}, params, true),
-         :ok <- check_duplicate(company_id, counterpart.eik, counterpart.vat_number, 0) do
+         :ok <- maybe_duplicate(company_id, counterpart, 0) do
       {:ok, Repo.insert!(counterpart)}
     end
   end
@@ -39,8 +39,7 @@ defmodule Botyaga.Catalog.Counterparts do
   def update(company_id, id, params) do
     with {:ok, current} <- get(company_id, id),
          {:ok, counterpart} <- apply_params(current, params, false),
-         :ok <-
-           check_duplicate(company_id, counterpart.eik, counterpart.vat_number, Params.id(id)) do
+         :ok <- maybe_duplicate(company_id, counterpart, Params.id(id)) do
       {:ok, Repo.update!(Ecto.Changeset.change(current, Map.take(counterpart, fields())))}
     end
   end
@@ -56,6 +55,7 @@ defmodule Botyaga.Catalog.Counterparts do
     [
       :name,
       :counterpart_type,
+      :is_individual,
       :eik,
       :vat_number,
       :address,
@@ -92,6 +92,8 @@ defmodule Botyaga.Catalog.Counterparts do
           end
         )
 
+      individual = flag(params, "is_individual", counterpart.is_individual)
+      changes = Map.put(changes, :is_individual, individual)
       counterpart = Ecto.Changeset.change(counterpart, changes) |> Ecto.Changeset.apply_changes()
       {:ok, normalize(counterpart)}
     end
@@ -196,7 +198,23 @@ defmodule Botyaga.Catalog.Counterparts do
         do: "both",
         else: counterpart.counterpart_type
 
-    %{counterpart | country: country, vat_number: vat, eik: eik, counterpart_type: type}
+    if counterpart.is_individual == 1 do
+      %{counterpart | country: country, vat_number: "", eik: "", counterpart_type: type}
+    else
+      %{counterpart | country: country, vat_number: vat, eik: eik, counterpart_type: type}
+    end
+  end
+
+  defp maybe_duplicate(_company_id, %{is_individual: 1}, _exclude), do: :ok
+
+  defp maybe_duplicate(company_id, c, exclude),
+    do: check_duplicate(company_id, c.eik, c.vat_number, exclude)
+
+  defp flag(params, key, current) do
+    case Params.str(params, key) do
+      {:present, v} -> if v in ["1", "true", 1, true], do: 1, else: 0
+      _ -> current
+    end
   end
 
   defp check_duplicate(company_id, eik, vat, exclude_id) do

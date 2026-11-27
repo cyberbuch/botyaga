@@ -459,6 +459,7 @@ export const bgA = {
   // контрагенти
   "counterparts.title": "Контрагенти",
   "counterparts.name": "Име",
+  "counterparts.is_individual": "Физическо лице (без ЕИК/ДДС номер)",
   "counterparts.eik": "ЕИК",
   "counterparts.vat_number": "ДДС номер",
   "counterparts.address": "Адрес",

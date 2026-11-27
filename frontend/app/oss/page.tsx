@@ -8,6 +8,7 @@ import { RequireAuth } from "../../components/RequireAuth";
 import { useI18n } from "../../components/I18nProvider";
 import { api } from "../../lib/api";
 import { OSS_COUNTRIES } from "../../lib/invoice";
+import { OssRatesTab } from "../../components/OssRatesTab";
 
 interface Line {
   id?: number;
@@ -53,7 +54,7 @@ const emptyLine = (): Line => ({ account: "702", country: "DE", supply_kind: "go
 
 function Inner() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<"reports" | "month" | "quarter">("reports");
+  const [tab, setTab] = useState<"reports" | "month" | "quarter" | "rates">("reports");
   const [reports, setReports] = useState<Report[]>([]);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Report | null>(null);
@@ -136,7 +137,7 @@ function Inner() {
         <h1 className="page-title">{t("oss.title")}</h1>
       </div>
       <div className="tabs">
-        {(["reports", "month", "quarter"] as const).map((k) => (
+        {(["reports", "month", "quarter", "rates"] as const).map((k) => (
           <button key={k} className={`tab${tab === k ? " tab-active" : ""}`} onClick={() => setTab(k)}>
             {t(`oss.tab.${k}`)}
           </button>
@@ -244,6 +245,7 @@ function Inner() {
         </div>
       )}
 
+      {tab === "rates" && <OssRatesTab />}
       {tab === "quarter" && (
         <div className="card content">
           <div className="form-grid">

@@ -2,6 +2,7 @@ defmodule BotyagaWeb.OssController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Oss}
+  alias Botyaga.Oss.Rates
   alias BotyagaWeb.Respond
 
   defp active(conn) do
@@ -93,6 +94,38 @@ defmodule BotyagaWeb.OssController do
     with {:ok, cid} <- active(conn),
          {:ok, d} <- Oss.unsubmit(cid, String.to_integer(y), String.to_integer(q)),
          do: Respond.ok(conn, d)
+  end
+
+  ## ДДС ставки по държави (история)
+
+  def rates(conn, _params) do
+    with {:ok, cid} <- active(conn) do
+      Respond.ok(conn, %{items: Rates.list(cid)})
+    end
+  end
+
+  def rate_create(conn, params) do
+    with {:ok, cid} <- active(conn), {:ok, r} <- Rates.create(cid, params) do
+      Respond.ok(conn, r, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def rate_copy(conn, %{"id" => id} = params) do
+    with {:ok, cid} <- active(conn), {:ok, r} <- Rates.copy(cid, id, params) do
+      Respond.ok(conn, r, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def rate_delete(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, _} <- Rates.delete(cid, id) do
+      Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
+    end
   end
 
   def register(conn, %{"year" => y, "quarter" => q}) do

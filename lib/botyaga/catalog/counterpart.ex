@@ -5,6 +5,7 @@ defmodule Botyaga.Catalog.Counterpart do
     field :company_id, :id
     field :name, :string
     field :counterpart_type, :string, default: "both"
+    field :is_individual, :integer, default: 0
     field :eik, :string
     field :vat_number, :string
     field :address, :string
