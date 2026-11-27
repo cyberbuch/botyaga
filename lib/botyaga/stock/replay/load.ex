@@ -5,7 +5,16 @@ defmodule Botyaga.Stock.Replay.Load do
 
   alias Botyaga.{Catalog, Companies, Dec, Invoicing, Repo}
   alias Botyaga.Production.{Order, OrderLine}
-  alias Botyaga.Stock.{InternalDoc, InternalDocLine, MaterialIssue, MaterialIssueLine}
+
+  alias Botyaga.Stock.{
+    InternalDoc,
+    InternalDocLine,
+    Kit,
+    KitLine,
+    MaterialIssue,
+    MaterialIssueLine
+  }
+
   alias Botyaga.Stock.Replay
 
   def load_products(company_id) do
@@ -179,6 +188,63 @@ defmodule Botyaga.Stock.Replay.Load do
             loc: order.location_id,
             doc: order.number,
             order: order.id
+          })
+        else
+          acc
+        end
+      else
+        acc
+      end
+    end)
+  end
+
+  def load_kits({items, dates}, company_id, products) do
+    kits =
+      Repo.all(
+        from(k in Kit,
+          where: k.company_id == ^company_id and k.status == "completed",
+          order_by: [asc: k.id]
+        )
+      )
+
+    Enum.reduce(kits, {items, dates}, fn kit, acc ->
+      lines = Repo.all(from(l in KitLine, where: l.kit_id == ^kit.id, order_by: [asc: l.id]))
+
+      acc =
+        Enum.reduce(Enum.with_index(lines), acc, fn {line, i}, acc ->
+          if keep?(products, line.product_id) do
+            lq = Dec.or0(line.quantity)
+
+            if lq > 0 do
+              push(acc, kit.doc_date, 3, kit.id * 1000 + i, %{
+                type: :out,
+                product: line.product_id,
+                qty: lq,
+                loc: kit.location_id,
+                doc: kit.number,
+                reason: "kit",
+                sale: false,
+                bucket: kit.id
+              })
+            else
+              acc
+            end
+          else
+            acc
+          end
+        end)
+
+      if keep?(products, kit.output_product_id) do
+        q = Dec.or0(kit.quantity)
+
+        if q > 0 do
+          push(acc, kit.doc_date, 4, kit.id * 1000 + 999, %{
+            type: :make,
+            product: kit.output_product_id,
+            qty: q,
+            loc: kit.location_id,
+            doc: kit.number,
+            order: kit.id
           })
         else
           acc

@@ -5,6 +5,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { ProductionCardsTab } from "../../components/ProductionCardsTab";
+import { ProductionKitsTab } from "../../components/ProductionKitsTab";
 import { api, fetchAll } from "../../lib/api";
 import { formatBgDate, todayIso } from "../../lib/dates";
 import { fetchCompanyLocations, CompanyLocation } from "../../lib/locations";
@@ -16,7 +17,7 @@ import { unitSymbol } from "../../lib/units";
 
 const PAGE_SIZE = 50;
 
-type Tab = "recipes" | "orders" | "cards";
+type Tab = "recipes" | "orders" | "cards" | "kits";
 
 interface Product {
   id: number;
@@ -374,6 +375,7 @@ function ProductionInner() {
           {t("mfg.tab.orders")}
         </button>
         <button type="button" className={`tab${tab === "cards" ? " tab-active" : ""}`} onClick={() => setTab("cards")}>{t("pc.tab")}</button>
+        <button type="button" className={`tab${tab === "kits" ? " tab-active" : ""}`} onClick={() => setTab("kits")}>{t("kit.tab")}</button>
         <button type="button" className={`tab${tab === "recipes" ? " tab-active" : ""}`} onClick={() => setTab("recipes")}>
           {t("mfg.tab.recipes")}
         </button>
@@ -390,6 +392,7 @@ function ProductionInner() {
       {loading && <div className="muted">{t("common.loading")}</div>}
 
       {tab === "cards" && <ProductionCardsTab />}
+      {tab === "kits" && <ProductionKitsTab />}
       {tab === "recipes" && !loading && (
         <div className="card">
           <div className="content table-wrap">

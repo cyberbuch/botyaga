@@ -10,6 +10,7 @@ defmodule Botyaga.Production.Recipe do
     field :output_unit, :string
     field :notes, :string
     field :is_active, :integer, default: 1
+    field :kind, :string, default: "production"
 
     timestamps(type: :utc_datetime)
   end

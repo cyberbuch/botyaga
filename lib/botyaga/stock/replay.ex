@@ -21,6 +21,7 @@ defmodule Botyaga.Stock.Replay do
       {[], []}
       |> Load.load_invoices(company_id, products)
       |> Load.load_production(company_id, products)
+      |> Load.load_kits(company_id, products)
       |> Load.load_transfers(company_id, products)
       |> Load.load_issues(company_id, products)
 
@@ -142,6 +143,10 @@ defmodule Botyaga.Stock.Replay do
             {made, spent, order_cost} =
               case it.mv.reason do
                 "production" ->
+                  {made ++ [%{doc: it.mv.bucket, product: pid, qty: covered, cost: cost}], spent,
+                   Map.update(order_cost, it.mv.bucket, cost, &(&1 + cost))}
+
+                "kit" ->
                   {made ++ [%{doc: it.mv.bucket, product: pid, qty: covered, cost: cost}], spent,
                    Map.update(order_cost, it.mv.bucket, cost, &(&1 + cost))}
 

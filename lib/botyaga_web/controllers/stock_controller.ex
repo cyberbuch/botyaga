@@ -2,7 +2,7 @@ defmodule BotyagaWeb.StockController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Printing, Stock}
-  alias Botyaga.Stock.{InternalDocs, MaterialIssues, ProductionReceipts, Rules, Writeoff}
+  alias Botyaga.Stock.{Kits, InternalDocs, MaterialIssues, ProductionReceipts, Rules, Writeoff}
   alias BotyagaWeb.{Render, Respond}
 
   def rules(conn, _params) do
@@ -283,6 +283,69 @@ defmodule BotyagaWeb.StockController do
     with {:ok, company_id} <- active(conn),
          {:ok, doc} <- InternalDocs.confirm(company_id, conn.assigns.current_user.username, id) do
       Respond.ok(conn, doc)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Комплектоване
+
+  def kits(conn, params) do
+    with {:ok, company_id} <- active(conn) do
+      company_id |> Kits.index() |> Render.page(params) |> then(&Respond.ok(conn, &1))
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn), {:ok, k} <- Kits.show(company_id, id) do
+      Respond.ok(conn, k)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit_create(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, k} <- Kits.create(company_id, conn.assigns.current_user.username, params) do
+      Respond.ok(conn, k, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit_update(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, k} <- Kits.update(company_id, conn.assigns.current_user.username, id, params) do
+      Respond.ok(conn, k)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit_delete(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, _} <- Kits.delete(company_id, conn.assigns.current_user.username, id) do
+      Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit_confirm(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, k} <- Kits.confirm(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, k)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def kit_unpost(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, k} <- Kits.unpost(company_id, conn.assigns.current_user.username, id) do
+      Respond.ok(conn, k)
     else
       error -> Respond.error(conn, error)
     end

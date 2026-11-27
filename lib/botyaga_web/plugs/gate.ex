@@ -141,6 +141,7 @@ defmodule BotyagaWeb.Plugs.Gate do
   defp segment_permission(_method, "vat", _), do: {:key, "vat"}
   defp segment_permission(_method, "oss", _), do: {:key, "vat"}
   defp segment_permission(_method, "production-cards", _), do: {:key, "production"}
+  defp segment_permission(_method, "kits", _), do: {:key, "stock"}
   defp segment_permission(_method, "bank-accounts", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-formats", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-transactions", _), do: {:key, "banking"}

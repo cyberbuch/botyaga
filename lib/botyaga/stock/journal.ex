@@ -9,7 +9,7 @@ defmodule Botyaga.Stock.Journal do
   alias Botyaga.{Catalog, Dec, Invoicing, Journal, Repo}
   alias Botyaga.Journal.{Entry, Line}
   alias Botyaga.Production.{Order, OrderLine}
-  alias Botyaga.Stock.{MaterialIssue, MaterialIssueLine, Rules}
+  alias Botyaga.Stock.{Kit, MaterialIssue, MaterialIssueLine, Rules}
 
   def strip_legacy(company_id) do
     entries =
@@ -72,70 +72,145 @@ defmodule Botyaga.Stock.Journal do
 
   def rewrite(company_id, products, books, warnings) do
     rules = Rules.load(company_id)
-    warnings = rewrite_production(company_id, products, rules, books, warnings)
+
+    kit_ids =
+      MapSet.new(Repo.all(from(k in Kit, where: k.company_id == ^company_id, select: k.id)))
+
+    warnings = rewrite_production(company_id, products, rules, books, warnings, kit_ids)
+    warnings = rewrite_kits(company_id, products, books, warnings, kit_ids)
     rewrite_material(company_id, rules, books, warnings)
   end
 
-  defp rewrite_production(company_id, products, rules, books, warnings) do
+  # Комплектоване: стойността на съставките се прехвърля към комплекта (без 611).
+  defp rewrite_kits(company_id, products, books, warnings, kit_ids) do
     Enum.reduce(books.prods, warnings, fn order, warnings ->
-      case Map.get(products, order.output_id) do
-        nil ->
-          warnings
+      if not MapSet.member?(kit_ids, order.id) do
+        warnings
+      else
+        case Map.get(products, order.output_id) do
+          nil ->
+            warnings
 
-        out ->
-          case Rules.pair(rules, "production", out.inventory, out.revenue) do
-            nil ->
-              warnings ++ ["няма правило за продукция за #{out.name}"]
+          out ->
+            costs = Enum.filter(books.made, &(&1.doc == order.id))
+            total = Enum.reduce(costs, 0, &(&2 + &1.cost))
 
-            rule ->
-              if rule.clearing_account_id <= 0 do
-                warnings ++ ["правилото за продукция няма междинна сметка (#{out.name})"]
-              else
-                costs = Enum.filter(books.made, &(&1.doc == order.id))
+            sides =
+              Enum.flat_map(costs, fn c ->
+                case Map.get(products, c.product) do
+                  nil ->
+                    []
 
-                {sides, total, warnings, ok} =
-                  production_sides(company_id, products, rules, rule, costs, warnings)
-
-                if ok do
-                  sides =
-                    if total != 0 do
-                      with {:ok, clearing} <- account_by_id(rule.clearing_account_id, company_id),
-                           {:ok, inv} <- account_by_id(out.inventory, company_id) do
-                        sides ++
-                          [
-                            %{account: inv, direction: "debit", amount: Dec.money(total)},
-                            %{account: clearing, direction: "credit", amount: Dec.money(total)}
-                          ]
-                      else
-                        _ -> sides
-                      end
+                  comp ->
+                    with {:ok, inv} <- account_by_id(comp.inventory, company_id) do
+                      [%{account: inv, direction: "credit", amount: Dec.money(c.cost)}]
                     else
-                      sides
+                      _ -> []
                     end
+                end
+              end)
 
-                  entry =
-                    write_fresh(
-                      company_id,
-                      "production",
-                      order.id,
-                      order.number,
-                      order.date,
-                      "Производство #{order.number}",
-                      sides
+            sides =
+              if total != 0 do
+                with {:ok, inv} <- account_by_id(out.inventory, company_id) do
+                  [%{account: inv, direction: "debit", amount: Dec.money(total)} | sides]
+                else
+                  _ -> sides
+                end
+              else
+                sides
+              end
+
+            if sides == [] do
+              warnings
+            else
+              entry =
+                write_fresh(
+                  company_id,
+                  "kit",
+                  order.id,
+                  order.number,
+                  order.date,
+                  "Комплектоване #{order.number}",
+                  sides
+                )
+
+              Repo.update_all(from(k in Kit, where: k.id == ^order.id),
+                set: [cost: Dec.money(total), journal_entry_id: entry]
+              )
+
+              warnings
+            end
+        end
+      end
+    end)
+  end
+
+  defp rewrite_production(company_id, products, rules, books, warnings, kit_ids) do
+    Enum.reduce(books.prods, warnings, fn order, warnings ->
+      if MapSet.member?(kit_ids, order.id) do
+        warnings
+      else
+        case Map.get(products, order.output_id) do
+          nil ->
+            warnings
+
+          out ->
+            case Rules.pair(rules, "production", out.inventory, out.revenue) do
+              nil ->
+                warnings ++ ["няма правило за продукция за #{out.name}"]
+
+              rule ->
+                if rule.clearing_account_id <= 0 do
+                  warnings ++ ["правилото за продукция няма междинна сметка (#{out.name})"]
+                else
+                  costs = Enum.filter(books.made, &(&1.doc == order.id))
+
+                  {sides, total, warnings, ok} =
+                    production_sides(company_id, products, rules, rule, costs, warnings)
+
+                  if ok do
+                    sides =
+                      if total != 0 do
+                        with {:ok, clearing} <-
+                               account_by_id(rule.clearing_account_id, company_id),
+                             {:ok, inv} <- account_by_id(out.inventory, company_id) do
+                          sides ++
+                            [
+                              %{account: inv, direction: "debit", amount: Dec.money(total)},
+                              %{account: clearing, direction: "credit", amount: Dec.money(total)}
+                            ]
+                        else
+                          _ -> sides
+                        end
+                      else
+                        sides
+                      end
+
+                    entry =
+                      write_fresh(
+                        company_id,
+                        "production",
+                        order.id,
+                        order.number,
+                        order.date,
+                        "Производство #{order.number}",
+                        sides
+                      )
+
+                    store_prod_lines(order.id, costs)
+
+                    Repo.update_all(from(o in Order, where: o.id == ^order.id),
+                      set: [material_cost: Dec.money(total), journal_entry_id: entry]
                     )
 
-                  store_prod_lines(order.id, costs)
-
-                  Repo.update_all(from(o in Order, where: o.id == ^order.id),
-                    set: [material_cost: Dec.money(total), journal_entry_id: entry]
-                  )
-
-                  warnings
-                else
-                  warnings
+                    warnings
+                  else
+                    warnings
+                  end
                 end
-              end
-          end
+            end
+        end
       end
     end)
   end
