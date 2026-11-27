@@ -280,6 +280,9 @@ defmodule BotyagaWeb.Router do
     post "/kits/:id/confirm", StockController, :kit_confirm
     post "/kits/:id/unpost", StockController, :kit_unpost
     post "/production-orders/:id/copy", ProductionController, :order_copy
+    post "/production-orders/:id/link", ProductionController, :order_link
+    post "/production-orders/:id/unlink", ProductionController, :order_unlink
+    get "/production-cards/:id/linkable", ProductionController, :card_linkable
     get "/production-orders/:id/pdf", ProductionController, :order_pdf
     get "/production-cards/:id/pdf", ProductionController, :card_pdf
     get "/production-receipts/:id/pdf", StockController, :receipt_pdf

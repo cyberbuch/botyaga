@@ -14,6 +14,7 @@ defmodule Botyaga.Production.Order do
     field :material_cost, :string
     field :journal_entry_id, :integer, default: 0
     field :recipe_snapshot, :string
+    field :card_id, :integer, default: 0
 
     timestamps(type: :utc_datetime)
   end

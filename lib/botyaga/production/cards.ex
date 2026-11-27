@@ -9,7 +9,7 @@ defmodule Botyaga.Production.Cards do
   import Ecto.Query
 
   alias Botyaga.{Attachments, Catalog, Dec, Journal, Params, Repo}
-  alias Botyaga.Production.{Card, CardProduct}
+  alias Botyaga.Production.{Card, CardProduct, Order}
 
   def list(company_id) do
     Repo.all(from(c in Card, where: c.company_id == ^company_id, order_by: [desc: c.id]))
@@ -31,8 +31,9 @@ defmodule Botyaga.Production.Cards do
           month: month,
           number: "ПК-#{month}",
           status: "draft",
-          materials_account_id: account_by_number(company_id, "601"),
-          production_account_id: account_by_number(company_id, "611"),
+          materials_account_id: account_by_prefix(company_id, "601"),
+          production_account_id: account_by_prefix(company_id, "611"),
+          kind: pick(params, "kind", "actual"),
           direct_accounts: Jason.encode!([]),
           common_accounts: Jason.encode!([]),
           notes: str(params, "notes")
@@ -54,6 +55,7 @@ defmodule Botyaga.Production.Cards do
               pick_int(params, "production_account_id", c.production_account_id),
             direct_accounts: encode_ids(params, "direct_accounts", c.direct_accounts),
             common_accounts: encode_ids(params, "common_accounts", c.common_accounts),
+            kind: pick(params, "kind", c.kind),
             common_share_percent: pick(params, "common_share_percent", c.common_share_percent),
             wip_end_mode: pick(params, "wip_end_mode", c.wip_end_mode),
             wip_end_value: pick(params, "wip_end_value", c.wip_end_value),
@@ -108,7 +110,7 @@ defmodule Botyaga.Production.Cards do
         )
 
       Repo.update!(Ecto.Changeset.change(c, status: "confirmed", journal_entry_id: eid))
-      persist_costs(c.id, pv)
+      persist_costs(c, pv)
       get(company_id, id)
     end
   end
@@ -124,8 +126,12 @@ defmodule Botyaga.Production.Cards do
   ## Изчисление
 
   defp compute(c) do
-    products = products_of(c.id)
-    materials = month_total(c.company_id, c.month, c.materials_account_id)
+    {products, materials} =
+      if c.kind == "recipes" do
+        {linked_orders(c), 0}
+      else
+        {products_of(c.id), month_total_prefix(c.company_id, c.month, "601")}
+      end
 
     direct =
       ids(c.direct_accounts)
@@ -175,6 +181,29 @@ defmodule Botyaga.Production.Cards do
     }
   end
 
+  # Закачени поръчки по рецепти: база за разпределение = тяхната себестойност.
+  defp linked_orders(c) do
+    Repo.all(
+      from(o in Order,
+        where: o.card_id == ^c.id and o.status == "completed",
+        order_by: [asc: o.id]
+      )
+    )
+    |> Enum.map(fn o ->
+      out = Repo.get(Catalog.Product, o.output_product_id)
+
+      %{
+        id: o.id,
+        product_id: o.output_product_id,
+        quantity: o.quantity,
+        coefficient: "1",
+        manual_amount: "",
+        weight: Dec.or0(o.material_cost),
+        inventory_account_id: (out && out.inventory_account_id) || 0
+      }
+    end)
+  end
+
   defp allocate(products, total) do
     manual = Enum.filter(products, &(&1.manual_amount != ""))
     auto = Enum.filter(products, &(&1.manual_amount == ""))
@@ -182,7 +211,10 @@ defmodule Botyaga.Production.Cards do
     manual_sum = Enum.reduce(manual, 0, &(&2 + Dec.or0(&1.manual_amount)))
     rest = total - manual_sum
 
-    weight = fn p -> Dec.mul(Dec.or0(p.quantity), Dec.or0(p.coefficient)) end
+    weight = fn p ->
+      Map.get(p, :weight) || Dec.mul(Dec.or0(p.quantity), Dec.or0(p.coefficient))
+    end
+
     total_weight = Enum.reduce(auto, 0, &(&2 + weight.(&1)))
 
     auto_costs =
@@ -225,19 +257,22 @@ defmodule Botyaga.Production.Cards do
 
   defp build_sides(company_id, c, pv) do
     prod = account!(company_id, c.production_account_id)
-    mat = account!(company_id, c.materials_account_id)
 
     sides = []
 
+    # Материалите (601xx, аналитични): Дт 611 общо / Кт всяка подсмекта с нейния оборот.
     sides =
-      if Dec.or0(pv.materials) != 0,
-        do:
-          sides ++
-            [
-              %{account: prod, direction: "debit", amount: pv.materials},
-              %{account: mat, direction: "credit", amount: pv.materials}
-            ],
-        else: sides
+      if Dec.or0(pv.materials) != 0 do
+        credits =
+          prefix_accounts(company_id, "601")
+          |> Enum.map(fn a -> {a, month_total(company_id, c.month, a.id)} end)
+          |> Enum.filter(fn {_a, v} -> v != 0 end)
+          |> Enum.map(fn {a, v} -> %{account: a, direction: "credit", amount: Dec.money(v)} end)
+
+        sides ++ [%{account: prod, direction: "debit", amount: pv.materials} | credits]
+      else
+        sides
+      end
 
     sides =
       Enum.reduce(pv.direct, sides, fn d, acc ->
@@ -292,7 +327,9 @@ defmodule Botyaga.Production.Cards do
     end)
   end
 
-  defp persist_costs(_card_id, pv) do
+  defp persist_costs(%{kind: "recipes"}, _pv), do: :ok
+
+  defp persist_costs(_c, pv) do
     Enum.each(pv.products, fn p ->
       Repo.update_all(from(x in CardProduct, where: x.id == ^p.id), set: [cost: p.cost])
     end)
@@ -367,7 +404,7 @@ defmodule Botyaga.Production.Cards do
       c.production_account_id <= 0 ->
         {:error, {422, "липсва сметка 611 (производство) — задайте я в сметкоплана"}}
 
-      c.materials_account_id <= 0 ->
+      c.kind != "recipes" and c.materials_account_id <= 0 ->
         {:error, {422, "липсва сметка 601 (материали) — задайте я в сметкоплана"}}
 
       true ->
@@ -414,6 +451,7 @@ defmodule Botyaga.Production.Cards do
       production_account_id: c.production_account_id,
       direct_accounts: ids(c.direct_accounts),
       common_accounts: ids(c.common_accounts),
+      kind: c.kind,
       common_share_percent: c.common_share_percent,
       wip_end_mode: c.wip_end_mode,
       wip_end_value: c.wip_end_value,
@@ -445,11 +483,32 @@ defmodule Botyaga.Production.Cards do
     end
   end
 
-  defp account_by_number(company_id, number) do
-    case Repo.get_by(Catalog.Account, company_id: company_id, number: number) do
+  defp account_by_prefix(company_id, prefix) do
+    q =
+      from(a in Catalog.Account,
+        where: a.company_id == ^company_id and like(a.number, ^"#{prefix}%"),
+        order_by: [asc: a.number],
+        limit: 1
+      )
+
+    case Repo.one(q) do
       nil -> 0
       a -> a.id
     end
+  end
+
+  defp month_total_prefix(company_id, month, prefix) do
+    prefix_accounts(company_id, prefix)
+    |> Enum.reduce(0, &(&2 + month_total(company_id, month, &1.id)))
+  end
+
+  defp prefix_accounts(company_id, prefix) do
+    Repo.all(
+      from(a in Catalog.Account,
+        where: a.company_id == ^company_id and like(a.number, ^"#{prefix}%"),
+        order_by: [asc: a.number]
+      )
+    )
   end
 
   defp account!(_company_id, id) do

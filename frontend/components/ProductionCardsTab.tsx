@@ -13,7 +13,7 @@ interface Account { id: number; number: string; name: string }
 interface Product { id: number; name: string }
 interface CProduct { id?: number; product_id: number; name?: string; quantity: string; coefficient: string; manual_amount: string; cost?: string }
 interface Card {
-  id: number; number: string; month: string; status: string;
+  id: number; number: string; month: string; status: string; kind?: string;
   materials_account_id: number; production_account_id: number;
   direct_accounts: number[]; common_accounts: number[];
   common_share_percent: string; wip_end_mode: string; wip_end_value: string;
@@ -29,7 +29,9 @@ export function ProductionCardsTab() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Card | null>(null);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [kind, setKind] = useState("actual");
   const [rows, setRows] = useState<CProduct[]>([]);
+  const [linkable, setLinkable] = useState<{ id: number; number: string; material_cost: string }[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -53,11 +55,22 @@ export function ProductionCardsTab() {
     const full = await api.get<Card>(`/v1/production-cards/${c.id}`);
     setEditing(full);
     setRows(full.products ?? []);
+    if (full.kind === "recipes") {
+      setLinkable((await api.get<{ items: { id: number; number: string; material_cost: string }[] }>(`/v1/production-cards/${c.id}/linkable`)).items ?? []);
+    }
+  };
+
+  const link = async (orderId: number) => {
+    if (!editing) return;
+    try {
+      await api.post(`/v1/production-orders/${orderId}/link`, { card_id: editing.id });
+      await open(editing);
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
 
   const create = async () => {
     try {
-      const c = await api.post<Card>("/v1/production-cards", { month, products: rows.map((r) => ({ product_id: r.product_id, quantity: r.quantity, coefficient: r.coefficient, manual_amount: r.manual_amount })) });
+      const c = await api.post<Card>("/v1/production-cards", { month, kind, products: rows.map((r) => ({ product_id: r.product_id, quantity: r.quantity, coefficient: r.coefficient, manual_amount: r.manual_amount })) });
       setEditing(c); setRows(c.products ?? []);
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -120,6 +133,7 @@ export function ProductionCardsTab() {
         <div>
           <div className="form-grid">
             <div className="field"><label className="label">{t("pc.month")}</label><input className="input" type="month" value={editing.month || month} onChange={(e) => setMonth(e.target.value)} disabled={editing.id > 0} /></div>
+            <div className="field"><label className="label">{t("pc.kind")}</label><select className="select" value={editing.kind || kind} disabled={editing.id > 0} onChange={(e) => { setKind(e.target.value); setEditing({ ...editing, kind: e.target.value }); }}><option value="actual">{t("pc.actual")}</option><option value="recipes">{t("pc.recipes")}</option></select></div>
             <div className="field"><label className="label">{t("pc.share")}</label><input className="input" value={editing.common_share_percent} onChange={(e) => setEditing({ ...editing, common_share_percent: e.target.value })} /></div>
             <div className="field"><label className="label">{t("pc.wip_mode")}</label><select className="select" value={editing.wip_end_mode} onChange={(e) => setEditing({ ...editing, wip_end_mode: e.target.value })}><option value="amount">{t("pc.amount")}</option><option value="percent">{t("pc.percent")}</option></select></div>
             <div className="field"><label className="label">{t("pc.wip_end")}</label><input className="input" value={editing.wip_end_value} onChange={(e) => setEditing({ ...editing, wip_end_value: e.target.value })} /></div>
@@ -138,7 +152,20 @@ export function ProductionCardsTab() {
             </div>
           </div>
 
-          <table className="table" style={{ marginTop: 8 }}>
+          {editing.kind === "recipes" && (
+            <div className="card content" style={{ marginTop: 8 }}>
+              <h3 className="invoice-section-title">{t("pc.linkable")}</h3>
+              {linkable.length === 0 ? <div className="muted">{t("pc.no_linkable")}</div> : (
+                <table className="table"><tbody>
+                  {linkable.map((o) => (
+                    <tr key={o.id}><td>{o.number}</td><td className="num">{o.material_cost}</td><td><button className="btn btn-sm" onClick={() => link(o.id)}>{t("pc.link")}</button></td></tr>
+                  ))}
+                </tbody></table>
+              )}
+            </div>
+          )}
+
+          {editing.kind !== "recipes" && (<><table className="table" style={{ marginTop: 8 }}>
             <thead><tr><th>{t("pc.product")}</th><th>{t("pc.qty")}</th><th>{t("pc.coef")}</th><th>{t("pc.manual")}</th><th>{t("pc.cost")}</th><th></th></tr></thead>
             <tbody>
               {rows.map((r, i) => (
@@ -153,7 +180,7 @@ export function ProductionCardsTab() {
               ))}
             </tbody>
           </table>
-          <button className="btn btn-sm" onClick={() => setRows((p) => [...p, { product_id: products[0]?.id ?? 0, quantity: "1", coefficient: "1", manual_amount: "" }])}>+ {t("pc.add")}</button>
+          <button className="btn btn-sm" onClick={() => setRows((p) => [...p, { product_id: products[0]?.id ?? 0, quantity: "1", coefficient: "1", manual_amount: "" }])}>+ {t("pc.add")}</button></>)}
 
           {editing.preview && (
             <div className="content" style={{ marginTop: 8 }}>

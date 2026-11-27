@@ -16,6 +16,7 @@ defmodule Botyaga.Production.Card do
     field :wip_end_value, :string, default: "0"
     field :journal_entry_id, :integer, default: 0
     field :notes, :string, default: ""
+    field :kind, :string, default: "actual"
     timestamps(type: :utc_datetime)
   end
 end

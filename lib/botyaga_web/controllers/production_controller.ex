@@ -1,7 +1,7 @@
 defmodule BotyagaWeb.ProductionController do
   use BotyagaWeb, :controller
 
-  alias Botyaga.Companies
+  alias Botyaga.{Companies, Params}
   alias Botyaga.Production.{Cards, Orders, Recipes}
   alias Botyaga.Printing.Protocol
   alias BotyagaWeb.{Render, Respond}
@@ -136,6 +136,31 @@ defmodule BotyagaWeb.ProductionController do
 
   def card_unpost(conn, %{"id" => id}) do
     with {:ok, cid} <- active(conn), {:ok, c} <- Cards.unpost(cid, id), do: Respond.ok(conn, c)
+  end
+
+  def order_link(conn, %{"id" => id} = params) do
+    with {:ok, cid} <- active(conn),
+         {:ok, o} <- Orders.link(cid, id, Params.integer(params, "card_id") || 0) do
+      Respond.ok(conn, o)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def order_unlink(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, o} <- Orders.unlink(cid, id) do
+      Respond.ok(conn, o)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def card_linkable(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, c} <- Cards.get(cid, id) do
+      Respond.ok(conn, %{items: Orders.linkable(cid, c.month)})
+    else
+      error -> Respond.error(conn, error)
+    end
   end
 
   def order_copy(conn, %{"id" => id}) do

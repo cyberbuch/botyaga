@@ -7,7 +7,7 @@ defmodule Botyaga.Production.Orders do
   import Ecto.Query
 
   alias Botyaga.{Attachments, Audit, Catalog, Companies, Dec, Params, Periods, Repo}
-  alias Botyaga.Production.{Order, OrderLine, Recipes}
+  alias Botyaga.Production.{Card, Order, OrderLine, Recipes}
   alias Botyaga.Stock.{Replay, Rules}
 
   def index(company_id) do
@@ -166,6 +166,46 @@ defmodule Botyaga.Production.Orders do
     end
   end
 
+  @doc "Закачане на поръчка към месечна карта (по рецепти)."
+  def link(company_id, id, card_id) do
+    with {:ok, order} <- fetch(company_id, id),
+         {:ok, card} <- fetch_card(company_id, card_id) do
+      if order.status != "completed" do
+        {:error, {422, "само потвърдена поръчка се закача"}}
+      else
+        {:ok, o} = Repo.update(Ecto.Changeset.change(order, card_id: card.id))
+        {:ok, one(o, false)}
+      end
+    end
+  end
+
+  def unlink(company_id, id) do
+    with {:ok, order} <- fetch(company_id, id) do
+      {:ok, o} = Repo.update(Ecto.Changeset.change(order, card_id: 0))
+      {:ok, one(o, false)}
+    end
+  end
+
+  @doc "Поръчки, които могат да се закачат за карта (потвърдени, за месеца, свободни)."
+  def linkable(company_id, month) do
+    Repo.all(
+      from(o in Order,
+        where:
+          o.company_id == ^company_id and o.status == "completed" and o.card_id == 0 and
+            like(o.order_date, ^"#{month}%"),
+        order_by: [asc: o.id]
+      )
+    )
+    |> Enum.map(&one(&1, false))
+  end
+
+  defp fetch_card(company_id, card_id) do
+    case Repo.get_by(Card, id: card_id, company_id: company_id) do
+      nil -> {:error, {404, "картата не е намерена"}}
+      c -> {:ok, c}
+    end
+  end
+
   @doc "Копие на поръчка: същите продукти/количества по рецепта, с днешна дата. Ръчните корекции остават само в оригинала."
   def copy(company_id, sub, id) do
     with {:ok, order} <- fetch(company_id, id) do
@@ -210,7 +250,8 @@ defmodule Botyaga.Production.Orders do
       status: order.status,
       notes: order.notes,
       material_cost: order.material_cost,
-      journal_entry_id: order.journal_entry_id
+      journal_entry_id: order.journal_entry_id,
+      card_id: order.card_id
     }
 
     base = Map.put(base, :recipe_snapshot, decode_snapshot(order.recipe_snapshot))
