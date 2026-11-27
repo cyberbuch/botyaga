@@ -421,9 +421,16 @@ defmodule Botyaga.Vat do
       if inv.direction == "in" and inv.document_type == "09" do
         ln = VatLine.reset_amounts(ln)
 
-        if ln.kind == "sales" and vop_protocol?(inv),
-          do: VatLine.add_vop_sale(ln, inv_net, inv_vat),
-          else: VatLine.add_purch(ln, inv_net, inv_vat)
+        cond do
+          ln.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 ->
+            VatLine.add_oss_sale(ln, inv_net)
+
+          ln.kind == "sales" and vop_protocol?(inv) ->
+            VatLine.add_vop_sale(ln, inv_net, inv_vat)
+
+          true ->
+            VatLine.add_purch(ln, inv_net, inv_vat)
+        end
       else
         ln
       end
@@ -446,6 +453,9 @@ defmodule Botyaga.Vat do
         rate = Fmt.rate_kind(line.vat_rate)
 
         cond do
+          acc.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 ->
+            VatLine.add_oss_sale(acc, base)
+
           acc.kind == "sales" and vop_protocol?(inv) ->
             VatLine.add_vop_sale(acc, base, vat)
 

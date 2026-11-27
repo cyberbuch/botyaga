@@ -117,6 +117,20 @@ defmodule Botyaga.Invoicing.Post do
 
   defp plan_for(inv) do
     company = Repo.get!(Company, inv.company_id)
+
+    with :ok <- oss_allowed(company, inv) do
+      plan_for_company(company, inv)
+    end
+  end
+
+  # OSS продажба се допуска само за фирма с включен OSS режим (регистриран е-магазин).
+  defp oss_allowed(company, inv) do
+    if inv.is_oss == 1 and company.oss_enabled != 1,
+      do: {:error, {422, "фирмата няма включен OSS режим — активирайте го в настройките"}},
+      else: :ok
+  end
+
+  defp plan_for_company(company, inv) do
     total = Money.amount_for_doc(inv.document_type, inv.total_amount)
     vat = Money.amount_for_doc(inv.document_type, inv.vat_amount)
     vat_cents = Money.cents(inv.vat_amount) || 0
@@ -197,8 +211,10 @@ defmodule Botyaga.Invoicing.Post do
   end
 
   defp sales_plan(company, inv, lines, total, vat, vat_cents) do
-    with {:ok, a411} <- Defaults.resolve(company, "customers"),
-         {:ok, a4532} <- Defaults.resolve(company, "vat_sale") do
+    {cp, vat_acc} = op_override(company, inv, lines)
+
+    with {:ok, a411} <- pick_account(company, cp, "customers"),
+         {:ok, a4532} <- vat_sale_account(company, inv, vat_acc) do
       plan = [side(a411, "debit", total, "0")]
 
       plan =
@@ -221,8 +237,10 @@ defmodule Botyaga.Invoicing.Post do
   end
 
   defp purchase_plan(company, inv, lines, total, vat, vat_cents) do
-    with {:ok, a401} <- Defaults.resolve(company, "suppliers"),
-         {:ok, a4531} <- Defaults.resolve(company, "vat_purchase") do
+    {cp, vat_acc} = op_override(company, inv, lines)
+
+    with {:ok, a401} <- pick_account(company, cp, "suppliers"),
+         {:ok, a4531} <- pick_account(company, vat_acc, "vat_purchase") do
       result =
         Enum.reduce_while(lines, {:ok, []}, fn line, {:ok, acc} ->
           net = Money.amount_for_doc(inv.document_type, line.net_amount)
@@ -265,6 +283,43 @@ defmodule Botyaga.Invoicing.Post do
       end
     end
   end
+
+  # Междинната „ДДС операция“ може да зададе сметките; по подразбиране съвпадат
+  # с ролите, така че стандартното осчетоводяване не се променя.
+  defp op_override(company, inv, lines) do
+    rate = dominant_rate(lines)
+
+    case Botyaga.Vat.Operations.for_invoice(company.id, inv, rate) do
+      nil -> {0, 0}
+      op -> {op.counterpart_account_id, op.vat_account_id}
+    end
+  end
+
+  defp dominant_rate(lines) do
+    rates = Enum.map(lines, &to_string(&1.vat_rate))
+
+    cond do
+      "20" in rates -> "20"
+      "9" in rates -> "9"
+      true -> "0"
+    end
+  end
+
+  defp pick_account(_company, id, _role) when id > 0 do
+    case Repo.get(Catalog.Account, id) do
+      nil -> {:error, {422, "липсва сметка от ДДС операцията"}}
+      a -> {:ok, a}
+    end
+  end
+
+  defp pick_account(company, _id, role), do: Defaults.resolve(company, role)
+
+  # OSS: чуждото ДДС отива в 4534 „ДДС по OSS режим“, не в българското 4532.
+  defp vat_sale_account(company, inv, _vat_acc) when inv.is_oss == 1 do
+    acct_or_create(company, Defaults.number(company, "oss_vat"), "ДДС по OSS режим")
+  end
+
+  defp vat_sale_account(company, _inv, vat_acc), do: pick_account(company, vat_acc, "vat_sale")
 
   defp side(account, direction, amount, vat_amount) do
     %{account: account, direction: direction, amount: amount, vat_amount: vat_amount}

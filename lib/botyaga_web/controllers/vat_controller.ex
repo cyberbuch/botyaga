@@ -2,6 +2,7 @@ defmodule BotyagaWeb.VatController do
   use BotyagaWeb, :controller
 
   alias Botyaga.{Companies, Vat}
+  alias Botyaga.Vat.Operations
   alias BotyagaWeb.{Render, Respond}
 
   def registers(conn, params) do
@@ -30,6 +31,52 @@ defmodule BotyagaWeb.VatController do
          {:ok, body} <- Vat.manual_save(company_id, params["period"] || "", params) do
       Respond.ok(conn, body)
     else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Междинна настройка „ДДС операции“
+
+  def operations_index(conn, _params) do
+    with {:ok, company_id} <- active(conn) do
+      Operations.seed(company_id)
+      Respond.ok(conn, %{items: Operations.list(company_id)})
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def operations_codes(conn, _params) do
+    Respond.ok(conn, %{purchase: Operations.purchase_codes(), sales: Operations.sales_codes()})
+  end
+
+  def operations_create(conn, params) do
+    with {:ok, company_id} <- active(conn),
+         {:ok, op} <- Operations.create(company_id, params) do
+      Respond.ok(conn, op, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def operations_update(conn, %{"id" => id} = params) do
+    with {:ok, company_id} <- active(conn),
+         %{} = op <- Operations.get(company_id, id),
+         {:ok, updated} <- Operations.update(op, params) do
+      Respond.ok(conn, updated)
+    else
+      nil -> Respond.error(conn, {404, "операцията не е намерена"})
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def operations_delete(conn, %{"id" => id}) do
+    with {:ok, company_id} <- active(conn),
+         %{} = op <- Operations.get(company_id, id),
+         {:ok, _} <- Operations.delete(op) do
+      Respond.no_content(conn)
+    else
+      nil -> Respond.error(conn, {404, "операцията не е намерена"})
       error -> Respond.error(conn, error)
     end
   end

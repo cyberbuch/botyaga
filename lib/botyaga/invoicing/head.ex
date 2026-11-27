@@ -31,6 +31,8 @@ defmodule Botyaga.Invoicing.Head do
         location_id: Params.integer(params, "location_id") || 0,
         bank_account_id: Params.integer(params, "bank_account_id") || 0,
         exclude_vat: flag(params, "exclude_vat"),
+        is_oss: flag(params, "is_oss"),
+        oss_country: string(params, "oss_country"),
         vat_article: string(params, "vat_article"),
         customs_statistical: opt_money(params, "customs_statistical"),
         customs_duty: opt_money(params, "customs_duty"),
@@ -60,6 +62,8 @@ defmodule Botyaga.Invoicing.Head do
       |> put_int(params, "location_id")
       |> put_int(params, "bank_account_id")
       |> put_flag(params, "exclude_vat")
+      |> put_flag(params, "is_oss")
+      |> put_string(params, "oss_country")
 
     head =
       Enum.reduce(~w(customs_statistical customs_duty customs_vat), head, fn field, acc ->
@@ -113,6 +117,13 @@ defmodule Botyaga.Invoicing.Head do
       nil -> head
       {:error, _} -> head
       value -> Map.put(head, String.to_existing_atom(key), value)
+    end
+  end
+
+  defp put_string(head, params, key) do
+    case Params.str(params, key) do
+      {:present, v} -> Map.put(head, String.to_existing_atom(key), v)
+      _ -> head
     end
   end
 

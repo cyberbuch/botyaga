@@ -162,6 +162,11 @@ defmodule BotyagaWeb.Router do
     get "/vat/return", VatController, :registers
     get "/vat/export", VatController, :export
     put "/vat/manual", VatController, :manual_save
+    get "/vat/operations/codes", VatController, :operations_codes
+    get "/vat/operations", VatController, :operations_index
+    post "/vat/operations", VatController, :operations_create
+    patch "/vat/operations/:id", VatController, :operations_update
+    delete "/vat/operations/:id", VatController, :operations_delete
     get "/vat-exemptions", VatController, :exemptions
 
     get "/bank-formats", BankingController, :formats

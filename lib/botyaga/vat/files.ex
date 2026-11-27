@@ -52,7 +52,7 @@ defmodule Botyaga.Vat.Files do
         ln.s_vod,
         ln.s_art,
         ln.s_svc,
-        ln.s_69,
+        ln.s_69 + ln.s_oss,
         ln.s_ex,
         ln.s_tri
       ]) <>

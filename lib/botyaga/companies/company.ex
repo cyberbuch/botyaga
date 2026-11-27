@@ -37,6 +37,7 @@ defmodule Botyaga.Companies.Company do
     field :software_id, :string
     field :software_version, :string
     field :is_part_of_group, :string
+    field :oss_enabled, :integer, default: 0
     field :street_name, :string
     field :building_number, :string
     field :address_building, :string

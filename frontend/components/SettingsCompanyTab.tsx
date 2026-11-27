@@ -162,6 +162,12 @@ export function SettingsCompanyTab({
                 <option value="0">{t("common.no")}</option>
               </select>
             </SettingsField>
+            <SettingsField label={t("companies.oss_enabled")}>
+              <select className="select" value={companyForm.oss_enabled ?? "0"} onChange={(e) => setC("oss_enabled", e.target.value)}>
+                <option value="1">{t("common.yes")}</option>
+                <option value="0">{t("common.no")}</option>
+              </select>
+            </SettingsField>
             <SettingsField label={t("companies.vat_period")}>
               <select className="select" value={companyForm.vat_period ?? "monthly"} onChange={(e) => setC("vat_period", e.target.value)}>
                 <option value="monthly">{t("companies.vat_period.monthly")}</option>

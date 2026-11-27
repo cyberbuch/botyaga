@@ -16,6 +16,7 @@ import { SettingsAutomationTab } from "../../components/SettingsAutomationTab";
 import { SettingsUsersTab } from "../../components/SettingsUsersTab";
 import { SettingsCompanyTab } from "../../components/SettingsCompanyTab";
 import { SettingsSaftTab } from "../../components/SettingsSaftTab";
+import { SettingsVatOpsTab } from "../../components/SettingsVatOpsTab";
 import {
   EMPTY_LOC,
   EMPTY_OWNER,
@@ -522,6 +523,13 @@ function SettingsInner() {
         </button>
         <button
           type="button"
+          className={`tab${tab === 8 ? " tab-active" : ""}`}
+          onClick={() => setTab(8)}
+        >
+          {t("settings.tab.vatops")}
+        </button>
+        <button
+          type="button"
           className={`tab${tab === 6 ? " tab-active" : ""}`}
           onClick={() => setTab(6)}
         >
@@ -616,6 +624,7 @@ function SettingsInner() {
 
       {tab === 3 && <FsFormulasTab />}
       {tab === 4 && <SettingsStockTab />}
+      {tab === 8 && <SettingsVatOpsTab />}
       {tab === 6 && <SettingsClosingTab />}
       {tab === 7 && <SettingsAutomationTab />}
       {tab === 5 && showUsers && <SettingsUsersTab companyId={activeId} />}

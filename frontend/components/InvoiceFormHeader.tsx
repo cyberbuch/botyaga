@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "../lib/api";
-import { CURRENCIES, Invoice, docTypeRequiresOriginal, docTypesFor } from "../lib/invoice";
+import { CURRENCIES, Invoice, docTypeRequiresOriginal, docTypesFor, OSS_COUNTRIES } from "../lib/invoice";
 import { CompanyLocation } from "../lib/locations";
 import { InvoiceFormCounterpart } from "./invoiceFormTypes";
 
@@ -35,6 +35,11 @@ export function InvoiceFormHeader({
   setFormError,
   excludeVat,
   setExcludeVat,
+  isOss,
+  setOss,
+  ossEnabled,
+  ossCountry,
+  setOssCountry,
   vatArticle,
   setVatArticle,
   customsStatistical,
@@ -73,6 +78,11 @@ export function InvoiceFormHeader({
   setFormError: (v: string) => void;
   excludeVat: boolean;
   setExcludeVat: (v: boolean) => void;
+  isOss: boolean;
+  setOss: (v: boolean) => void;
+  ossEnabled: boolean;
+  ossCountry: string;
+  setOssCountry: (v: string) => void;
   vatArticle: string;
   setVatArticle: (v: string) => void;
   customsStatistical: string;
@@ -330,6 +340,23 @@ export function InvoiceFormHeader({
                 />
               </div>
             </div>
+          </div>
+        )}
+        {ossEnabled && direction === "out" && (
+          <div style={{ marginTop: 14 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500, cursor: "pointer" }}>
+              <input type="checkbox" checked={isOss} onChange={(e) => setOss(e.target.checked)} />
+              {t("invoices.is_oss")}
+            </label>
+            {isOss && (
+              <div className="field" style={{ marginTop: 10 }}>
+                <label className="label">{t("invoices.oss_country")}</label>
+                <select className="select" value={ossCountry} onChange={(e) => setOssCountry(e.target.value)}>
+                  <option value="">—</option>
+                  {OSS_COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            )}
           </div>
         )}
         {canExcludeVat && (

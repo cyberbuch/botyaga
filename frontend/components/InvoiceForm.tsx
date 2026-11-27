@@ -20,6 +20,7 @@ import {
   round2,
   todayIso,
   toDateInput,
+  ossRates,
 } from "../lib/invoice";
 import { useI18n } from "./I18nProvider";
 import { UnitOfMeasure } from "../lib/units";
@@ -72,6 +73,9 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
   const [originalInvoiceId, setOriginalInvoiceId] = useState("");
   const [pricesIncludeVat, setPricesIncludeVat] = useState(false);
   const [excludeVat, setExcludeVat] = useState(false);
+  const [isOss, setOss] = useState(false);
+  const [ossEnabled, setOssEnabled] = useState(false);
+  const [ossCountry, setOssCountry] = useState("");
   const [vatArticle, setVatArticle] = useState("чл. 117");
   const [customsStatistical, setCustomsStatistical] = useState("");
   const [customsDuty, setCustomsDuty] = useState("");
@@ -159,6 +163,10 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
   );
 
   useEffect(() => {
+    api.get<{ oss_enabled?: number }>("/v1/active-company").then((c) => setOssEnabled(Number(c.oss_enabled || 0) === 1)).catch(() => setOssEnabled(false));
+  }, []);
+
+  useEffect(() => {
     loadLookups();
   }, [loadLookups]);
 
@@ -202,6 +210,8 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
           inv.original_invoice_id ? String(inv.original_invoice_id) : ""
         );
         setExcludeVat(Number(inv.exclude_vat || 0) === 1);
+        setOss(Number(inv.is_oss || 0) === 1);
+        setOssCountry(inv.oss_country || "");
         setVatArticle(inv.vat_article || "чл. 117");
         setCustomsStatistical(inv.customs_statistical || "");
         setCustomsDuty(inv.customs_duty || "");
@@ -377,6 +387,8 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
       original_invoice_id: originalInvoiceId ? Number(originalInvoiceId) : 0,
       location_id: Number(locationId) || 0,
       bank_account_id: Number(bankAccountId) || 0,
+      is_oss: isOss ? 1 : 0,
+      oss_country: isOss ? ossCountry : "",
       exclude_vat:
         direction === "in" && documentType !== "07" && documentType !== "09" && excludeVat
           ? 1
@@ -485,6 +497,11 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
         setFormError={setFormError}
         excludeVat={excludeVat}
         setExcludeVat={setExcludeVat}
+        isOss={isOss}
+        setOss={setOss}
+        ossEnabled={ossEnabled}
+        ossCountry={ossCountry}
+        setOssCountry={setOssCountry}
         vatArticle={vatArticle}
         setVatArticle={setVatArticle}
         customsStatistical={customsStatistical}
@@ -504,6 +521,7 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
         setItemOpenFor={setItemOpenFor}
         setItemQuery={setItemQuery}
         units={units}
+        rates={isOss ? ossRates(ossCountry) : undefined}
       />
       <section className="card invoice-section">
         <h2 className="invoice-section-title">{t("invoices.totals_section")}</h2>

@@ -65,6 +65,7 @@ defmodule Botyaga.Companies do
 
       company = Repo.insert!(company)
       {created, _skipped} = Catalog.seed_chart(company.id)
+      Botyaga.Vat.Operations.seed(company.id)
       {:ok, company, created}
     end
   end
@@ -355,6 +356,7 @@ defmodule Botyaga.Companies do
     with changes when is_map(changes) <- string_changes,
          {:ok, is_vat_registered} <-
            optional_flag(params, "is_vat_registered", company.is_vat_registered),
+         {:ok, oss_enabled} <- optional_flag(params, "oss_enabled", company.oss_enabled),
          {:ok, fiscal_month} <-
            optional_int(params, "fiscal_year_start_month", company.fiscal_year_start_month),
          :ok <- check_branch(changes),
@@ -363,6 +365,7 @@ defmodule Botyaga.Companies do
       changes =
         changes
         |> Map.put(:is_vat_registered, is_vat_registered)
+        |> Map.put(:oss_enabled, oss_enabled)
         |> Map.put(:fiscal_year_start_month, fiscal_month)
         |> apply_defaults(company)
 

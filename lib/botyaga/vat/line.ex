@@ -5,7 +5,7 @@ defmodule Botyaga.Vat.Line do
   alias Botyaga.Vat.{Ex, Fmt}
 
   @amount_fields ~w(p_no p_fb p_fv p_pb p_pv p_adj p_vop s_tb s_tv s_b20 s_v20 s_vopb s_82
-                     s_vopv s_pers s_b9 s_v9 s_ch3 s_vod s_art s_svc s_69 s_ex s_tri)a
+                     s_vopv s_pers s_b9 s_v9 s_ch3 s_vod s_art s_svc s_69 s_ex s_tri s_oss)a
 
   def empty(kind) do
     base = %{
@@ -35,9 +35,16 @@ defmodule Botyaga.Vat.Line do
 
   def reset_amounts(ln) do
     reset =
-      ~w(p_no p_fb p_fv s_tb s_tv s_b20 s_v20 s_vopb s_82 s_vopv s_b9 s_v9 s_ch3 s_vod s_art s_svc s_ex)a
+      ~w(p_no p_fb p_fv s_tb s_tv s_b20 s_v20 s_vopb s_82 s_vopv s_b9 s_v9 s_ch3 s_vod s_art s_svc s_ex s_oss)a
 
     Enum.reduce(reset, ln, fn field, acc -> Map.put(acc, field, 0) end)
+  end
+
+  @doc "OSS продажба: основата в колона 23 (клетка 18), чуждото ДДС не влиза в българските клетки."
+  def add_oss_sale(ln, base) do
+    ln
+    |> Map.update!(:s_tb, &(&1 + base))
+    |> Map.update!(:s_oss, &(&1 + base))
   end
 
   def add_vop_sale(ln, base, vat) do
@@ -128,6 +135,7 @@ defmodule Botyaga.Vat.Line do
       base_exempt: Money.money(ln.s_ex),
       base_tri: Money.money(ln.s_tri),
       base_82: Money.money(ln.s_82),
+      base_oss: Money.money(ln.s_oss),
       pers_amount: Money.money(ln.s_pers),
       base_amount: Money.money(base),
       vat_amount: Money.money(vat)
@@ -217,7 +225,7 @@ defmodule Botyaga.Vat.Line do
         |> Map.update!(:s15, &(&1 + ln.s_vod))
         |> Map.update!(:s16, &(&1 + ln.s_art))
         |> Map.update!(:s17, &(&1 + ln.s_svc))
-        |> Map.update!(:s18, &(&1 + ln.s_69 + ln.s_tri))
+        |> Map.update!(:s18, &(&1 + ln.s_69 + ln.s_tri + ln.s_oss))
         |> Map.update!(:s19, &(&1 + ln.s_ex))
       end
     else

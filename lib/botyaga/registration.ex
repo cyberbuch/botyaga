@@ -42,6 +42,7 @@ defmodule Botyaga.Registration do
     Repo.transaction(fn ->
       company = Repo.insert!(company)
       Catalog.seed_chart(company.id)
+      Botyaga.Vat.Operations.seed(company.id)
 
       {:ok, user} = Accounts.create_user(email, name, password, "admin")
       {:ok, role_id} = Access.role_id_by_name(Access.role_admin())

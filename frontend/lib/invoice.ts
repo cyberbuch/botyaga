@@ -57,6 +57,20 @@ export function docTypeIsProforma(t: string): boolean {
 
 export const UNITS = ["C62", "H87", "KGM", "LTR", "MTR", "MTK", "MTQ", "HUR", "DAY", "SET", "PK", "E48"];
 export const VAT_RATES = ["20", "9", "0"];
+
+// OSS: държавата на потребление и нейните ставки (стандартна/намалена/0).
+export const OSS_COUNTRIES = ["DE","FR","IT","ES","NL","BE","AT","PL","CZ","GR","RO","HU","PT","SE","DK","FI","IE","HR","SK","SI","BG"];
+export const OSS_RATES: Record<string, string[]> = {
+  DE: ["19","7","0"], FR: ["20","5.5","0"], IT: ["22","4","0"], ES: ["21","10","0"],
+  NL: ["21","9","0"], BE: ["21","6","0"], AT: ["20","10","0"], PL: ["23","8","0"],
+  CZ: ["21","12","0"], GR: ["24","13","0"], RO: ["19","9","0"], HU: ["27","5","0"],
+  PT: ["23","6","0"], SE: ["25","6","0"], DK: ["25","0"], FI: ["25.5","10","0"],
+  IE: ["23","13.5","0"], HR: ["25","5","0"], SK: ["23","19","0"], SI: ["22","9.5","0"],
+  BG: ["20","9","0"],
+};
+export function ossRates(country: string): string[] {
+  return OSS_RATES[country] ?? ["20","9","0"];
+}
 export const PAY_METHODS = ["банков превод", "в брой", "карта", "компенсация", "друго"];
 export const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "BGN", "RON", "PLN", "TRY", "JPY", "CNY"];
 
@@ -137,6 +151,8 @@ export interface Invoice {
   bank_account_id?: number;
   location_id?: number;
   exclude_vat?: number;
+  is_oss?: number;
+  oss_country?: string;
   vat_article?: string;
   customs_statistical?: string;
   customs_duty?: string;

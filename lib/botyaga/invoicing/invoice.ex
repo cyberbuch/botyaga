@@ -28,6 +28,8 @@ defmodule Botyaga.Invoicing.Invoice do
     field :bank_account_id, :id, default: 0
     field :journal_entry_id, :id
     field :exclude_vat, :integer, default: 0
+    field :is_oss, :integer, default: 0
+    field :oss_country, :string, default: ""
     field :vat_article, :string
     field :customs_statistical, :string
     field :customs_duty, :string

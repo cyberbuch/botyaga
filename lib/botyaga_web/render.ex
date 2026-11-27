@@ -45,6 +45,7 @@ defmodule BotyagaWeb.Render do
       software_id: company.software_id,
       software_version: company.software_version,
       is_part_of_group: company.is_part_of_group,
+      oss_enabled: company.oss_enabled,
       street_name: company.street_name,
       building_number: company.building_number,
       address_building: company.address_building,

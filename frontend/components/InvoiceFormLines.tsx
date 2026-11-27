@@ -14,6 +14,7 @@ export function InvoiceFormLines({
   setItemOpenFor,
   setItemQuery,
   units,
+  rates,
 }: {
   t: (k: string) => string;
   pricedLines: InvoiceLine[];
@@ -24,7 +25,9 @@ export function InvoiceFormLines({
   setItemOpenFor: (i: number) => void;
   setItemQuery: (v: string) => void;
   units: UnitOfMeasure[];
+  rates?: string[];
 }) {
+  const rateOptions = rates ?? VAT_RATES;
   return (
     <section className="card invoice-section">
         <div className="invoice-section-head">
@@ -111,13 +114,13 @@ export function InvoiceFormLines({
                       value={l.vat_rate}
                       onChange={(e) => setLine(i, { vat_rate: e.target.value })}
                     >
-                      {VAT_RATES.map((r) => (
+                      {rateOptions.map((r) => (
                         <option key={r} value={r}>
                           {r}%
                         </option>
                       ))}
                       {l.vat_rate &&
-                        !(VAT_RATES as readonly string[]).includes(l.vat_rate) && (
+                        !(rateOptions as readonly string[]).includes(l.vat_rate) && (
                           <option value={l.vat_rate}>{l.vat_rate}%</option>
                         )}
                     </select>
