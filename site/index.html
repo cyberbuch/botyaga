@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="bg"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Документация · Botyaga</title><link rel="stylesheet" href="assets/style.css">
+</head><body><div class="wrap">
+<aside><div class="brand"><span class="dot">Б</span>Botyaga</div><nav>
+<a href="start.html" class="active">Начало</a>
+<a href="firms.html" class="">Фирми и настройки</a>
+<a href="accounts.html" class="">Сметкоплан и периоди</a>
+<a href="catalog.html" class="">Контрагенти и стоки</a>
+<a href="banking.html" class="">Банка</a>
+<a href="invoices.html" class="">Фактури</a>
+<a href="journal.html" class="">Дневник и одит</a>
+<a href="vat.html" class="">ДДС</a>
+<a href="saft.html" class="">SAF-T</a>
+<a href="production.html" class="">Производство и комплектоване</a>
+<a href="stock.html" class="">Склад и материали</a>
+<a href="oss.html" class="">OSS режим в Съюза</a>
+<a href="reports.html" class="">Справки</a>
+<a href="admin.html" class="">Потребители и администриране</a>
+</nav></aside>
+<main>
+<div class="crumbs"><a href="index.html">Начало</a> · Документация</div>
+<h1>Документация</h1>
+<p class="lead">Указания за работа с Botyaga по модули.</p>
+<div class="card">
+<p>Botyaga е уеб счетоводна система за български фирми: фактури, дневник, ДДС (дневници по чл. 116, VIES, справка-декларация),
+SAF-T, банка, склад, производство, комплектоване и OSS. Работи като един интерфейс на адрес :3021 и използва API зад него.</p>
+<ul>
+<li>Един вход за всички фирми — превключвате с падащото „Активна фирма“.</li>
+<li>Мултитенантност: всяка фирма има свой сметкоплан, контрагенти, фактури, склад и права.</li>
+<li>ДДС и SAF-T по официалните спецификации на НАП; експорт PDF/Excel/Word/ODT.</li>
+<li>Локално доказателство: backend (Elixir/Phoenix) + frontend (Next.js) + PostgreSQL.</li>
+</ul>
+</div><div class="grid"><div class="mini"><h3><a href="firms.html">Фирми и настройки</a></h3><p>Фирми, настройки на фирмата, роли и печат</p></div><div class="mini"><h3><a href="accounts.html">Сметкоплан и периоди</a></h3><p>Сметкоплан, начални салда, счетоводни периоди</p></div><div class="mini"><h3><a href="catalog.html">Контрагенти и стоки</a></h3><p>Контрагенти, стоки и услуги, цени и ДДС</p></div><div class="mini"><h3><a href="banking.html">Банка</a></h3><p>Банкови сметки, извлечения и осчетоводяване</p></div><div class="mini"><h3><a href="invoices.html">Фактури</a></h3><p>Входящи и изходящи фактури, дебитни/кредитни известия</p></div><div class="mini"><h3><a href="journal.html">Дневник и одит</a></h3><p>Счетоводен дневник, ръчни записи, одитна следа</p></div><div class="mini"><h3><a href="vat.html">ДДС</a></h3><p>ДДС операции, дневници и справка-декларация, VIES</p></div><div class="mini"><h3><a href="saft.html">SAF-T</a></h3><p>Експорт на SAF-T XML и кореспонденции</p></div><div class="mini"><h3><a href="production.html">Производство и комплектоване</a></h3><p>Рецепти, поръчки, месечни карти, комплектоване</p></div><div class="mini"><h3><a href="stock.html">Склад и материали</a></h3><p>Складова справка, изписване на материали, вътрешни документи</p></div><div class="mini"><h3><a href="oss.html">OSS режим в Съюза</a></h3><p>OSS отчети, месечно деклариране и тримесечна справка</p></div><div class="mini"><h3><a href="reports.html">Справки</a></h3><p>Оборотни, главна книга, по сметка и по контрагент, баланс, ОПР</p></div><div class="mini"><h3><a href="admin.html">Потребители и администриране</a></h3><p>Потребители, фирми, права, лог за влизанията</p></div></div><h2>Първи стъпки</h2><ol><li>Създайте фирма и попълнете данните ѝ (Настройки на фирмата).</li><li>Заредете сметкоплана и началните салда.</li><li>Добавете контрагенти и стоки.</li><li>Издайте първата фактура — тя сама се осчетоводява в дневника.</li></ol>
+<figure class="shot"><img src="assets/shots/dashboard.png" alt="Табло: чернови/осчетоводени фактури, вземания, задължения, приходи, разходи, ДДС и последни фактури."><figcaption class="cap">Табло: чернови/осчетоводени фактури, вземания, задължения, приходи, разходи, ДДС и последни фактури.</figcaption></figure>
+<footer>Botyaga · счетоводна система · този сайт е статична документация на приложението.</footer>
+</main></div></body></html>
