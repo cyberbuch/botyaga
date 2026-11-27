@@ -214,6 +214,7 @@ export const bgB = {
   "oss.tab.reports": "Отчети",
   "oss.tab.month": "Месечно деклариране",
   "oss.tab.quarter": "Тримесечна справка",
+  "oss.tab.rates": "ДДС ставки",
   "oss.new_report": "Нов OSS отчет",
   "oss.number": "Номер",
   "oss.month": "Месец",

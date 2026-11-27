@@ -213,6 +213,7 @@ export const enB = {
   "oss.tab.reports": "Reports",
   "oss.tab.month": "Monthly declaration",
   "oss.tab.quarter": "Quarterly return",
+  "oss.tab.rates": "VAT rates",
   "oss.new_report": "New OSS report",
   "oss.number": "Number",
   "oss.month": "Month",
