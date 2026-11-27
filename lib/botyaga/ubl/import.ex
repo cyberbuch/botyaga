@@ -5,7 +5,8 @@ defmodule Botyaga.Ubl.Import do
   артикули, абсорбиране на ДДС при нерегистрирана фирма.
   """
 
-  alias Botyaga.{Companies, Params, Pnmap}
+  alias Botyaga.{Companies, Dec, Params, Pnmap}
+  alias Botyaga.Invoicing.Money
   alias Botyaga.Pnmap.Absorb
   alias Botyaga.Ubl.Parser
 
@@ -88,19 +89,49 @@ defmodule Botyaga.Ubl.Import do
     pid = if hit, do: Pnmap.product_for(company_id, hit.id, line.name, line.seller), else: 0
     pid = if pid == 0, do: Pnmap.product_by_code(company_id, line.seller), else: pid
 
+    {vat_amount, total_amount} = line_vat_total(line.net, line.pct)
+
     item = %{
       "description" => line.name,
       "seller_code" => line.seller,
       "quantity" => if(line.qty == "", do: "1", else: line.qty),
       "unit" => if(line.unit == "", do: "C62", else: line.unit),
       "unit_price" => if(line.price == "", do: "0", else: line.price),
-      "vat_rate" => if(line.pct == "", do: "20", else: line.pct),
+      "vat_rate" => if(line.pct == "", do: "20", else: norm_rate(line.pct)),
       "net_amount" => line.net,
-      "vat_amount" => "",
-      "total_amount" => ""
+      "vat_amount" => vat_amount,
+      "total_amount" => total_amount
     }
 
     if pid > 0, do: Map.put(item, "product_id", pid), else: item
+  end
+
+  # Canonical ставка като в останалото API („20“, не „20.00“), за да съвпадне
+  # с опциите на избора за ДДС % в черновата.
+  defp norm_rate(pct) do
+    trimmed = String.trim(pct)
+
+    case Float.parse(trimmed) do
+      {f, _} ->
+        canon = if f == trunc(f), do: Integer.to_string(trunc(f)), else: trimmed
+        if canon in ["20", "9", "0"], do: canon, else: trimmed
+
+      :error ->
+        trimmed
+    end
+  end
+
+  # Сумата на реда идва от LineExtensionAmount, не от к-во × цена: при закръглена
+  # единична цена (напр. 2 × 666.67) оригиналът носи 1333.33, а не 1333.34.
+  defp line_vat_total(net, pct) do
+    if net != "" and pct != "" do
+      net_c = Money.cents(net) || 0
+      rate = Dec.or0(pct)
+      vat_c = Kernel.div(net_c * rate + 50_000_000, 100_000_000)
+      {Money.money(vat_c), Money.money(net_c + vat_c)}
+    else
+      {"", ""}
+    end
   end
 
   defp totals(lines, doc, direction, vat_registered) do

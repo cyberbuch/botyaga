@@ -163,6 +163,45 @@ defmodule BotyagaWeb.UblTest do
       assert hd(body["lines"])["description"] == "Стока"
     end
 
+    test "редът запазва оригиналната сума при закръглена цена", %{conn: conn} do
+      xml = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+               xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+               xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+        <cbc:ID>INV-R</cbc:ID>
+        <cbc:IssueDate>2026-09-16</cbc:IssueDate>
+        <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+        <cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+        <cac:AccountingSupplierParty><cac:Party>
+          <cac:PartyName><cbc:Name>Доставчик</cbc:Name></cac:PartyName>
+          <cac:PartyTaxScheme><cbc:CompanyID>BG111222333</cbc:CompanyID></cac:PartyTaxScheme>
+        </cac:Party></cac:AccountingSupplierParty>
+        <cac:TaxTotal><cbc:TaxAmount>266.67</cbc:TaxAmount></cac:TaxTotal>
+        <cac:LegalMonetaryTotal>
+          <cbc:LineExtensionAmount>1333.33</cbc:LineExtensionAmount>
+          <cbc:PayableAmount>1600.00</cbc:PayableAmount>
+        </cac:LegalMonetaryTotal>
+        <cac:InvoiceLine>
+          <cbc:InvoicedQuantity unitCode="C62">2</cbc:InvoicedQuantity>
+          <cbc:LineExtensionAmount>1333.33</cbc:LineExtensionAmount>
+          <cac:Item><cbc:Name>Електроуреди</cbc:Name>
+            <cac:ClassifiedTaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>20.00</cbc:Percent></cac:ClassifiedTaxCategory>
+          </cac:Item>
+          <cac:Price><cbc:PriceAmount>666.67</cbc:PriceAmount></cac:Price>
+        </cac:InvoiceLine>
+      </Invoice>
+      """
+
+      body = json_response(post(conn, "/v1/scans/ubl", %{"xml" => xml}), 200)
+      line = hd(body["lines"])
+      assert line["net_amount"] == "1333.33"
+      assert line["vat_amount"] == "266.67"
+      assert line["total_amount"] == "1600.00"
+      assert line["vat_rate"] == "20"
+      assert body["total_amount"] == "1600.00"
+    end
+
     test "празен файл и грешна посока", %{conn: conn} do
       conn = post(conn, "/v1/scans/ubl", %{})
       assert json_response(conn, 422)["detail"] == "празен файл"
