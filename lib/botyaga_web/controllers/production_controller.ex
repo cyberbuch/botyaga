@@ -2,7 +2,7 @@ defmodule BotyagaWeb.ProductionController do
   use BotyagaWeb, :controller
 
   alias Botyaga.Companies
-  alias Botyaga.Production.{Orders, Recipes}
+  alias Botyaga.Production.{Cards, Orders, Recipes}
   alias BotyagaWeb.{Render, Respond}
 
   ## Рецепти
@@ -95,6 +95,46 @@ defmodule BotyagaWeb.ProductionController do
     else
       error -> Respond.error(conn, error)
     end
+  end
+
+  ## Месечни производствени карти (фактическо производство)
+
+  def cards(conn, _params) do
+    with {:ok, cid} <- active(conn), do: Respond.ok(conn, %{items: Cards.list(cid)})
+  end
+
+  def card(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, c} <- Cards.get(cid, id), do: Respond.ok(conn, c)
+  end
+
+  def card_create(conn, params) do
+    with {:ok, cid} <- active(conn),
+         {:ok, c} <- Cards.create(cid, params),
+         do: Respond.ok(conn, c, 201)
+  end
+
+  def card_update(conn, %{"id" => id} = params) do
+    with {:ok, cid} <- active(conn),
+         {:ok, c} <- Cards.update(cid, id, params),
+         do: Respond.ok(conn, c)
+  end
+
+  def card_delete(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn),
+         {:ok, _} <- Cards.delete(cid, id),
+         do: Respond.no_content(conn)
+  end
+
+  def card_preview(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, p} <- Cards.preview(cid, id), do: Respond.ok(conn, p)
+  end
+
+  def card_confirm(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, c} <- Cards.confirm(cid, id), do: Respond.ok(conn, c)
+  end
+
+  def card_unpost(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, c} <- Cards.unpost(cid, id), do: Respond.ok(conn, c)
   end
 
   defp active(conn) do

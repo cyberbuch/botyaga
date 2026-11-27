@@ -4,6 +4,7 @@
 // и заприходява готова продукция през склада (WAC/FIFO/LIFO) + запис 611.
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ProductionCardsTab } from "../../components/ProductionCardsTab";
 import { api, fetchAll } from "../../lib/api";
 import { formatBgDate, todayIso } from "../../lib/dates";
 import { fetchCompanyLocations, CompanyLocation } from "../../lib/locations";
@@ -15,7 +16,7 @@ import { unitSymbol } from "../../lib/units";
 
 const PAGE_SIZE = 50;
 
-type Tab = "recipes" | "orders";
+type Tab = "recipes" | "orders" | "cards";
 
 interface Product {
   id: number;
@@ -372,6 +373,7 @@ function ProductionInner() {
         <button type="button" className={`tab${tab === "orders" ? " tab-active" : ""}`} onClick={() => setTab("orders")}>
           {t("mfg.tab.orders")}
         </button>
+        <button type="button" className={`tab${tab === "cards" ? " tab-active" : ""}`} onClick={() => setTab("cards")}>{t("pc.tab")}</button>
         <button type="button" className={`tab${tab === "recipes" ? " tab-active" : ""}`} onClick={() => setTab("recipes")}>
           {t("mfg.tab.recipes")}
         </button>
@@ -387,6 +389,7 @@ function ProductionInner() {
       </div>
       {loading && <div className="muted">{t("common.loading")}</div>}
 
+      {tab === "cards" && <ProductionCardsTab />}
       {tab === "recipes" && !loading && (
         <div className="card">
           <div className="content table-wrap">
