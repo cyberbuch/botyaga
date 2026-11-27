@@ -516,6 +516,8 @@ export const enA = {
   "invoices.title": "Invoices",
   "invoices.number": "Number",
   "invoices.direction": "Direction",
+  "invoices.doc_matrix": "Reference: which document goes in which journal",
+  "invoices.doc_code": "Code",
   "invoices.document_type": "Document type",
   "invoices.document_type.01": "Invoice",
   "invoices.document_type.02": "Debit note",

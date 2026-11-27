@@ -527,6 +527,8 @@ export const bgA = {
   "invoices.direction": "Посока",
   "invoices.direction.in": "Входяща",
   "invoices.direction.out": "Изходяща",
+  "invoices.doc_matrix": "Справка: кой документ в кой дневник влиза",
+  "invoices.doc_code": "Код",
   "invoices.document_type": "Тип документ",
   "invoices.document_type.01": "Фактура",
   "invoices.document_type.02": "Дебитно известие",

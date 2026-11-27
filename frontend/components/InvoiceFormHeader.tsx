@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { CURRENCIES, Invoice, docTypeRequiresOriginal, docTypesFor, OSS_COUNTRIES } from "../lib/invoice";
 import { CompanyLocation } from "../lib/locations";
 import { InvoiceFormCounterpart } from "./invoiceFormTypes";
+import { DocTypeMatrix } from "./DocTypeMatrix";
 
 export function InvoiceFormHeader({
   t,
@@ -102,6 +103,17 @@ export function InvoiceFormHeader({
         <h2 className="invoice-section-title">{t("invoices.header")}</h2>
         <div className="form-grid">
           <div className="field">
+            <label className="label">{t("invoices.direction")}</label>
+            <select
+              className="select"
+              value={direction}
+              onChange={(e) => setDirection(e.target.value)}
+            >
+              <option value="out">{t("invoices.direction.out")}</option>
+              <option value="in">{t("invoices.direction.in")}</option>
+            </select>
+          </div>
+          <div className="field">
             <label className="label">{t("invoices.document_type")}</label>
             <select
               className="select"
@@ -123,18 +135,11 @@ export function InvoiceFormHeader({
             )}
           </div>
         </div>
+        <details style={{ marginTop: 8 }}>
+          <summary className="muted" style={{ cursor: "pointer" }}>{t("invoices.doc_matrix")}</summary>
+          <DocTypeMatrix t={t} direction={direction} />
+        </details>
         <div className="form-grid">
-          <div className="field">
-            <label className="label">{t("invoices.direction")}</label>
-            <select
-              className="select"
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-            >
-              <option value="out">{t("invoices.direction.out")}</option>
-              <option value="in">{t("invoices.direction.in")}</option>
-            </select>
-          </div>
           {locations.length > 0 && (
             <div className="field">
               <label className="label">{t("invoices.location")}</label>

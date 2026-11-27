@@ -6,9 +6,9 @@ defmodule Botyaga.Invoicing.Money do
 
   @credit ~w(03 13 23)
   @requires_original ~w(02 03 12 13 23)
-  @common ~w(01 02 03 07 09 11 12 13)
-  @out_extra ~w(04 23 29 50 81 82 83 84 85 91 93 94 95)
-  @in_extra ~w(05 23 91 92 93 94)
+  @common ~w(01 02 03 09 11 12 13 93)
+  @out_extra ~w(04 23 29 50 81 82 83 84 85 91 95)
+  @in_extra ~w(05 07 92 94)
 
   def is_credit(t), do: t in @credit
   def is_proforma(t), do: t == "proforma"

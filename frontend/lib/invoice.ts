@@ -1,45 +1,40 @@
 // Споделени типове и изчисления за фактури.
 
-// Видове данъчни документи — кодове по ППДДС. Проформата не е данъчен документ.
-export const DOC_TYPES_COMMON = [
-  "01",
-  "02",
-  "03",
-  "07",
-  "09",
-  "11",
-  "12",
-  "13",
-] as const;
-export const DOC_TYPES_OUT = [
-  ...DOC_TYPES_COMMON,
-  "04",
-  "81",
-  "82",
-  "23",
-  "29",
-  "50",
-  "83",
-  "84",
-  "85",
-  "91",
-  "93",
-  "94",
-  "95",
-] as const;
-export const DOC_TYPES_IN = [
-  ...DOC_TYPES_COMMON,
-  "05",
-  "23",
-  "91",
-  "92",
-  "93",
-  "94",
-] as const;
+// Видове данъчни документи — кодове по ППЗДС (Приложение № 12).
+// Маркировка в кой дневник влиза: in = покупки (входяща), out = продажби (изходяща).
+export interface DocType { code: string; in: boolean; out: boolean }
+export const DOC_TYPE_REGISTRY: DocType[] = [
+  { code: "01", in: true, out: true },   // Фактура
+  { code: "02", in: true, out: true },   // Дебитно известие
+  { code: "03", in: true, out: true },   // Кредитно известие
+  { code: "07", in: true, out: false },  // Митническа декларация (внос)
+  { code: "09", in: true, out: true },   // Протокол (чл.117 и др.)
+  { code: "11", in: true, out: true },   // Фактура - касова отчетност
+  { code: "12", in: true, out: true },   // Дебитно - касова
+  { code: "13", in: true, out: true },   // Кредитно - касова
+  { code: "04", in: false, out: true },  // Регистър изпратени стоки / получени плащания
+  { code: "05", in: true, out: false },  // Регистър получени стоки / извършени плащания
+  { code: "23", in: false, out: true },  // Кредитно по чл.126б ал.1
+  { code: "29", in: false, out: true },  // Протокол по чл.126б ал.2
+  { code: "81", in: false, out: true },  // Отчет продажби
+  { code: "82", in: false, out: true },  // Отчет спец. режим
+  { code: "95", in: false, out: true },  // Протокол безвъзмездни хранителни стоки
+  { code: "91", in: false, out: true },  // Протокол чл.151в ал.3
+  { code: "92", in: true, out: false },  // Протокол чл.151г ал.8
+  { code: "93", in: true, out: true },   // Протокол чл.151в ал.7
+  { code: "94", in: true, out: false },  // Протокол чл.151в ал.7 (получател спец. режим)
+  { code: "50", in: false, out: true },  // Протокол горива с компенсации
+  { code: "83", in: false, out: true },  // Отчет горива
+  { code: "84", in: false, out: true },  // Отчет хляб
+  { code: "85", in: false, out: true },  // Отчет брашно
+];
+export const DOC_TYPES_COMMON = DOC_TYPE_REGISTRY.filter((d) => d.in && d.out).map((d) => d.code);
+export const DOC_TYPES_OUT = DOC_TYPE_REGISTRY.filter((d) => d.out).map((d) => d.code);
+export const DOC_TYPES_IN = DOC_TYPE_REGISTRY.filter((d) => d.in).map((d) => d.code);
 export const DOC_TYPE_PROFORMA = "proforma";
 
 export function docTypesFor(direction: string): string[] {
-  const base = direction === "in" ? [...DOC_TYPES_IN] : [...DOC_TYPES_OUT];
+  const base = direction === "in" ? DOC_TYPES_IN : DOC_TYPES_OUT;
   return [DOC_TYPE_PROFORMA, ...base];
 }
 
