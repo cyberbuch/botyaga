@@ -16,6 +16,8 @@ defmodule Botyaga.Stock.ProductionReceiptLine do
     field :inventory_account_id, :integer, default: 0
     field :revenue_account_id, :integer, default: 0
     field :expense_account_id, :integer, default: 0
+    field :coefficient, :string, default: "1"
+    field :manual_amount, :string, default: ""
 
     timestamps(type: :utc_datetime)
   end

@@ -112,7 +112,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
               month: month,
               status: "draft",
               notes: notes,
-              journal_entry_id: 0
+              journal_entry_id: 0,
+              wip_end_mode: pick(params, "wip_end_mode", "amount"),
+              wip_end_value: pick(params, "wip_end_value", "0")
             })
 
           doc = Repo.update!(Ecto.Changeset.change(doc, number: "ПР-#{doc.id}"))
@@ -147,7 +149,15 @@ defmodule Botyaga.Stock.ProductionReceipts do
 
       {:ok, doc} =
         Repo.transaction(fn ->
-          doc = Repo.update!(Ecto.Changeset.change(doc, notes: notes))
+          doc =
+            Repo.update!(
+              Ecto.Changeset.change(doc,
+                notes: notes,
+                wip_end_mode: pick(params, "wip_end_mode", doc.wip_end_mode),
+                wip_end_value: pick(params, "wip_end_value", doc.wip_end_value)
+              )
+            )
+
           Repo.delete_all(from(l in ProductionReceiptLine, where: l.doc_id == ^doc.id))
           Repo.delete_all(from(a in ProductionReceiptAllocation, where: a.doc_id == ^doc.id))
           insert_lines(doc.id, lines)
@@ -210,7 +220,7 @@ defmodule Botyaga.Stock.ProductionReceipts do
          lines = lines_of(doc.id),
          :ok <- not_empty(lines),
          :ok <- lines_ready(company_id, lines),
-         recomputed = recompute_lines(company_id, doc.month, lines, %{}),
+         recomputed = recompute_lines(company_id, doc.month, lines, doc),
          :ok <- values_present(recomputed),
          {:ok, allocs, indirect_total} <- allocations(company_id, doc.month, recomputed, %{}),
          {:ok, sides, totals} <- sides(company_id, recomputed, allocs, indirect_total) do
@@ -362,8 +372,11 @@ defmodule Botyaga.Stock.ProductionReceipts do
         pid = Params.integer(l, "product_id") || 0
 
         case qty_of(Map.get(l, "ending_quantity")) do
-          {:ok, q} -> Map.put(acc, pid, q)
-          _ -> acc
+          {:ok, q} ->
+            Map.put(acc, pid, {q, pick(l, "coefficient", "1"), pick(l, "manual_amount", "")})
+
+          _ ->
+            acc
         end
       end)
 
@@ -377,11 +390,11 @@ defmodule Botyaga.Stock.ProductionReceipts do
       Enum.reduce(ids, [], fn pid, acc ->
         p = Map.fetch!(products, pid)
         s = Map.get(sold, pid, %{qty: 0, revenue: 0})
-        end_qty = Map.get(ending, pid, 0)
-        acc ++ [{p, s.qty, end_qty}]
+        {end_qty, coef, manual} = Map.get(ending, pid, {0, "1", ""})
+        acc ++ [{p, s.qty, end_qty, coef, manual}]
       end)
 
-    case Enum.reduce_while(rows, {:ok, []}, fn {p, sold_qty, end_qty}, {:ok, acc} ->
+    case Enum.reduce_while(rows, {:ok, []}, fn {p, sold_qty, end_qty, coef, manual}, {:ok, acc} ->
            case product_ok(company_id, p) do
              :ok ->
                {:cont,
@@ -389,10 +402,13 @@ defmodule Botyaga.Stock.ProductionReceipts do
                  acc ++
                    [
                      %{
+                       id: p.id,
                        product: p,
                        sold_quantity: sold_qty,
                        ending_quantity: end_qty,
-                       quantity: sold_qty + end_qty
+                       quantity: sold_qty + end_qty,
+                       coefficient: coef,
+                       manual_amount: manual
                      }
                    ]}}
 
@@ -404,13 +420,15 @@ defmodule Botyaga.Stock.ProductionReceipts do
         {:error, {422, "няма артикули за месеца — проверете продажбите по КТ 701"}}
 
       {:ok, prepared} ->
-        total_produced = Enum.reduce(prepared, 0, &(&2 + &1.quantity))
         expense_total = expense_total(company_id, month, params)
-        unit = if total_produced > 0, do: Dec.div(expense_total, total_produced) || 0, else: 0
+        available = expense_total - wip_end(params, expense_total)
+        amounts = line_amounts(prepared, available)
 
         {:ok,
-         Enum.map(prepared, fn r ->
+         Enum.zip(prepared, amounts)
+         |> Enum.map(fn {r, amount} ->
            p = r.product
+           unit = if r.quantity > 0, do: Dec.div(amount, r.quantity) || 0, else: 0
 
            %{
              product_id: p.id,
@@ -419,7 +437,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
              ending_quantity: r.ending_quantity,
              quantity: r.quantity,
              unit_cost: unit,
-             amount: Dec.mul(r.quantity, unit),
+             amount: amount,
+             coefficient: r.coefficient,
+             manual_amount: r.manual_amount,
              inventory_account_id: p.inventory_account_id,
              revenue_account_id: p.revenue_account_id,
              expense_account_id: expense_account(company_id, p)
@@ -432,18 +452,29 @@ defmodule Botyaga.Stock.ProductionReceipts do
   end
 
   # При потвърждаване стойностите се преизчисляват от текущия оборот на 611.
-  defp recompute_lines(company_id, month, lines, params) do
-    total_produced =
-      lines
-      |> Enum.reduce(0, fn l, s -> s + Dec.or0(l.sold_quantity) + Dec.or0(l.ending_quantity) end)
+  defp recompute_lines(company_id, month, lines, doc) do
+    expense_total = expense_total(company_id, month, %{})
+    wip = %{"wip_end_mode" => doc.wip_end_mode, "wip_end_value" => doc.wip_end_value}
+    available = expense_total - wip_end(wip, expense_total)
 
-    expense_total = expense_total(company_id, month, params)
-    unit = if total_produced > 0, do: Dec.div(expense_total, total_produced) || 0, else: 0
+    rows =
+      Enum.map(lines, fn l ->
+        %{
+          id: l.product_id,
+          quantity: Dec.or0(l.sold_quantity) + Dec.or0(l.ending_quantity),
+          coefficient: l.coefficient,
+          manual_amount: l.manual_amount
+        }
+      end)
 
-    Enum.map(lines, fn l ->
+    amounts = line_amounts(rows, available)
+
+    Enum.zip(lines, amounts)
+    |> Enum.map(fn {l, amount} ->
       sold = Dec.or0(l.sold_quantity)
       end_qty = Dec.or0(l.ending_quantity)
       qty = sold + end_qty
+      unit = if qty > 0, do: Dec.div(amount, qty) || 0, else: 0
 
       %{
         product_id: l.product_id,
@@ -452,11 +483,63 @@ defmodule Botyaga.Stock.ProductionReceipts do
         ending_quantity: end_qty,
         quantity: qty,
         unit_cost: unit,
-        amount: Dec.mul(qty, unit),
+        amount: amount,
+        coefficient: l.coefficient,
+        manual_amount: l.manual_amount,
         inventory_account_id: l.inventory_account_id,
         revenue_account_id: l.revenue_account_id,
         expense_account_id: l.expense_account_id
       }
+    end)
+  end
+
+  # Незавършено производство: част от 611, която остава за следващия месец.
+  defp wip_end(src, available) do
+    case pick(src, "wip_end_mode", "amount") do
+      "percent" ->
+        Dec.div(Dec.mul(available, Dec.or0(pick(src, "wip_end_value", "0"))), 100 * Dec.scale()) ||
+          0
+
+      _ ->
+        Dec.or0(pick(src, "wip_end_value", "0"))
+    end
+  end
+
+  # Разпределение: ръчна сума има предност; останалото по количество×коефициент.
+  defp line_amounts(rows, available) do
+    manual_sum =
+      Enum.reduce(rows, 0, fn r, a ->
+        a + if(r.manual_amount != "", do: Dec.or0(r.manual_amount), else: 0)
+      end)
+
+    rest = available - manual_sum
+    auto = Enum.filter(rows, &(&1.manual_amount == ""))
+    weight = fn r -> Dec.mul(r.quantity, Dec.or0(r.coefficient)) end
+    tw = Enum.reduce(auto, 0, &(&2 + weight.(&1)))
+
+    auto_map =
+      if tw > 0 do
+        list = Enum.map(auto, fn r -> {r.id, Dec.div(Dec.mul(rest, weight.(r)), tw) || 0} end)
+        sum = Enum.reduce(list, 0, &(&2 + elem(&1, 1)))
+        diff = rest - sum
+
+        list =
+          case list do
+            [] ->
+              []
+
+            l ->
+              {lid, lv} = List.last(l)
+              List.replace_at(l, length(l) - 1, {lid, lv + diff})
+          end
+
+        Map.new(list)
+      else
+        Map.new(auto, &{&1.id, 0})
+      end
+
+    Enum.map(rows, fn r ->
+      if r.manual_amount != "", do: Dec.or0(r.manual_amount), else: Map.get(auto_map, r.id, 0)
     end)
   end
 
@@ -519,7 +602,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
         writeoff_amount: "0.00",
         inventory_account_id: line.inventory_account_id,
         revenue_account_id: line.revenue_account_id,
-        expense_account_id: line.expense_account_id
+        expense_account_id: line.expense_account_id,
+        coefficient: line.coefficient,
+        manual_amount: line.manual_amount
       })
     end)
   end
@@ -783,7 +868,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
           unit_cost: Dec.text(l.unit_cost, 6),
           amount: Dec.money(l.amount),
           allocated_amount: Dec.money(alloc),
-          writeoff_amount: Dec.money(w)
+          writeoff_amount: Dec.money(w),
+          coefficient: l.coefficient,
+          manual_amount: l.manual_amount
         ]
       )
     end)
@@ -842,7 +929,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
       month: doc.month,
       status: doc.status,
       notes: doc.notes,
-      journal_entry_id: doc.journal_entry_id
+      journal_entry_id: doc.journal_entry_id,
+      wip_end_mode: doc.wip_end_mode,
+      wip_end_value: doc.wip_end_value
     }
 
     if with_lines do
@@ -880,7 +969,9 @@ defmodule Botyaga.Stock.ProductionReceipts do
         writeoff_amount: l.writeoff_amount,
         inventory_account_id: l.inventory_account_id,
         revenue_account_id: l.revenue_account_id,
-        expense_account_id: l.expense_account_id
+        expense_account_id: l.expense_account_id,
+        coefficient: l.coefficient,
+        manual_amount: l.manual_amount
       }
     end)
   end

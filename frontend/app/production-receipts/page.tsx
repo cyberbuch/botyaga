@@ -64,6 +64,8 @@ interface Line {
   sold_quantity: string;
   sold_amount: string;
   ending_quantity: string;
+  coefficient?: string;
+  manual_amount?: string;
   quantity: string;
   unit_cost: string;
   amount: string;
@@ -90,6 +92,8 @@ interface Doc {
   month: string;
   status: string;
   notes: string;
+  wip_end_mode?: string;
+  wip_end_value?: string;
   journal_entry_id: number;
   lines?: Line[];
   allocations?: Alloc[];
@@ -356,6 +360,8 @@ function NewReceipt({
   const [preview, setPreview] = useState<Preview | null>(null);
   const [ending, setEnding] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
+  const [wipMode, setWipMode] = useState("amount");
+  const [wipValue, setWipValue] = useState("0");
 
   async function loadPreview(e?: FormEvent) {
     e?.preventDefault();
@@ -384,7 +390,7 @@ function NewReceipt({
         product_id: l.product_id,
         ending_quantity: ending[l.product_id] ?? "0",
       }));
-      const created = await api.post<Doc>("/v1/production-receipts", { month, lines });
+      const created = await api.post<Doc>("/v1/production-receipts", { month, lines, wip_end_mode: wipMode, wip_end_value: wipValue });
       await onCreated(created.id);
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -415,6 +421,17 @@ function NewReceipt({
             value={month}
             onChange={(e) => setMonth(e.target.value)}
           />
+        </div>
+        <div className="field">
+          <label className="label">{t("pr.wip_mode")}</label>
+          <select className="select" value={wipMode} onChange={(e) => setWipMode(e.target.value)}>
+            <option value="amount">{t("pr.wip_amount")}</option>
+            <option value="percent">{t("pr.percent")}</option>
+          </select>
+        </div>
+        <div className="field">
+          <label className="label">{t("pr.wip_end")}</label>
+          <input className="input" value={wipValue} onChange={(e) => setWipValue(e.target.value)} />
         </div>
         <div className="field">
           <label className="label">&nbsp;</label>
@@ -531,6 +548,8 @@ function Editor({
   onError: (msg: string) => void;
 }) {
   const [notes, setNotes] = useState(doc.notes || "");
+  const [wipMode, setWipMode] = useState(doc.wip_end_mode || "amount");
+  const [wipValue, setWipValue] = useState(doc.wip_end_value || "0");
   const [lines, setLines] = useState<Line[]>(doc.lines ?? []);
   const [dtab, setDtab] = useState<"made" | "alloc" | "entries">("made");
   const [busy, setBusy] = useState(false);
@@ -540,6 +559,8 @@ function Editor({
 
   useEffect(() => {
     setNotes(doc.notes || "");
+    setWipMode(doc.wip_end_mode || "amount");
+    setWipValue(doc.wip_end_value || "0");
     setLines(doc.lines ?? []);
     setEntry(null);
     setPlanned(null);
@@ -570,12 +591,20 @@ function Editor({
     );
   }
 
+  function setLineField(productId: number, patch: Partial<Line>) {
+    setLines((prev) => prev.map((l) => (l.product_id === productId ? { ...l, ...patch } : l)));
+  }
+
   function draftBody() {
     return {
       notes,
+      wip_end_mode: wipMode,
+      wip_end_value: wipValue,
       lines: lines.map((l) => ({
         product_id: l.product_id,
         ending_quantity: l.ending_quantity,
+        coefficient: l.coefficient ?? "1",
+        manual_amount: l.manual_amount ?? "",
       })),
     };
   }
@@ -704,6 +733,17 @@ function Editor({
               onChange={(e) => setNotes(e.target.value)}
             />
           </div>
+          <div className="field">
+            <label className="label">{t("pr.wip_mode")}</label>
+            <select className="select" value={wipMode} disabled={locked} onChange={(e) => setWipMode(e.target.value)}>
+              <option value="amount">{t("pr.wip_amount")}</option>
+              <option value="percent">{t("pr.percent")}</option>
+            </select>
+          </div>
+          <div className="field">
+            <label className="label">{t("pr.wip_end")}</label>
+            <input className="input" value={wipValue} disabled={locked} onChange={(e) => setWipValue(e.target.value)} />
+          </div>
         </div>
         <div className="form-actions">
           {!locked && (
@@ -764,6 +804,8 @@ function Editor({
                 <th>{t("pr.sold_qty")}</th>
                 <th>{t("pr.sold_amount")}</th>
                 <th>{t("pr.ending")}</th>
+                {!locked && <th>{t("pr.coef")}</th>}
+                {!locked && <th>{t("pr.manual")}</th>}
                 <th>{t("pr.produced_qty")}</th>
                 <th>{t("pr.unit_cost")}</th>
                 <th>{t("pr.amount")}</th>
@@ -799,6 +841,12 @@ function Editor({
                           />
                         )}
                       </td>
+                      {!locked && (
+                        <td><input className="input" style={{ maxWidth: 70 }} value={l.coefficient ?? "1"} onChange={(e) => setLineField(l.product_id, { coefficient: e.target.value })} /></td>
+                      )}
+                      {!locked && (
+                        <td><input className="input" style={{ maxWidth: 90 }} value={l.manual_amount ?? ""} onChange={(e) => setLineField(l.product_id, { manual_amount: e.target.value })} /></td>
+                      )}
                       <td>{locked ? l.quantity : fmtQty(produced)}</td>
                       <td>{shownUnit(l)}</td>
                       <td>{shownAmount(l)}</td>
