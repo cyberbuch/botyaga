@@ -112,6 +112,8 @@ export const bgA = {
   "companies.manager": "Управител",
   "companies.oss_enabled": "OSS режим в Съюза (регистриран е-магазин)",
   "invoices.oss_country": "Държава на сделката (потребление)",
+  "invoices.margin": "Режим на маржа (стоки втора употреба)",
+  "invoices.margin_export": "Износ по чл.146 (0%)",
   "invoices.is_oss": "OSS продажба (режим в Съюза)",
   "companies.is_vat_registered": "ДДС регистрирана",
   "companies.vat_period": "ДДС период",

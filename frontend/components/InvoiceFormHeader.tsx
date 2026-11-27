@@ -38,6 +38,10 @@ export function InvoiceFormHeader({
   setExcludeVat,
   isOss,
   setOss,
+  isMargin,
+  setIsMargin,
+  marginExport,
+  setMarginExport,
   ossEnabled,
   ossCountry,
   setOssCountry,
@@ -81,6 +85,10 @@ export function InvoiceFormHeader({
   setExcludeVat: (v: boolean) => void;
   isOss: boolean;
   setOss: (v: boolean) => void;
+  isMargin: boolean;
+  setIsMargin: (v: boolean) => void;
+  marginExport: boolean;
+  setMarginExport: (v: boolean) => void;
   ossEnabled: boolean;
   ossCountry: string;
   setOssCountry: (v: string) => void;
@@ -347,6 +355,18 @@ export function InvoiceFormHeader({
             </div>
           </div>
         )}
+        <div style={{ marginTop: 14 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500, cursor: "pointer" }}>
+            <input type="checkbox" checked={isMargin} onChange={(e) => setIsMargin(e.target.checked)} />
+            {t("invoices.margin")}
+          </label>
+          {isMargin && direction === "out" && (
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, marginLeft: 16, cursor: "pointer" }}>
+              <input type="checkbox" checked={marginExport} onChange={(e) => setMarginExport(e.target.checked)} />
+              {t("invoices.margin_export")}
+            </label>
+          )}
+        </div>
         {ossEnabled && direction === "out" && (
           <div style={{ marginTop: 14 }}>
             <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 500, cursor: "pointer" }}>

@@ -147,6 +147,8 @@ export interface Invoice {
   location_id?: number;
   exclude_vat?: number;
   is_oss?: number;
+  is_margin?: number;
+  margin_export?: number;
   oss_country?: string;
   vat_article?: string;
   customs_statistical?: string;

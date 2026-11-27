@@ -162,6 +162,10 @@ defmodule BotyagaWeb.Router do
     get "/vat/return", VatController, :registers
     get "/vat/export", VatController, :export
     put "/vat/manual", VatController, :manual_save
+    get "/vat/margin", VatController, :margin_list
+    get "/vat/margin/preview", VatController, :margin_preview
+    post "/vat/margin", VatController, :margin_create
+    delete "/vat/margin/:id", VatController, :margin_delete
     get "/vat/operations/codes", VatController, :operations_codes
     get "/vat/operations", VatController, :operations_index
     post "/vat/operations", VatController, :operations_create

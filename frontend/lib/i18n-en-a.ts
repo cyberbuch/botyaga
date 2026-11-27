@@ -107,6 +107,8 @@ export const enA = {
   "companies.manager": "Manager",
   "companies.oss_enabled": "OSS Union regime (registered e-shop)",
   "invoices.oss_country": "Country of the transaction (consumption)",
+  "invoices.margin": "Margin scheme (second-hand goods)",
+  "invoices.margin_export": "Export under Art.146 (0%)",
   "invoices.is_oss": "OSS sale (Union regime)",
   "companies.is_vat_registered": "VAT registered",
   "companies.vat_period": "VAT period",

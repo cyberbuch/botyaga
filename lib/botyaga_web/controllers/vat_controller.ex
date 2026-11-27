@@ -3,6 +3,7 @@ defmodule BotyagaWeb.VatController do
 
   alias Botyaga.{Companies, Vat}
   alias Botyaga.Vat.Operations
+  alias Botyaga.Vat.Margin
   alias BotyagaWeb.{Render, Respond}
 
   def registers(conn, params) do
@@ -77,6 +78,38 @@ defmodule BotyagaWeb.VatController do
       Respond.no_content(conn)
     else
       nil -> Respond.error(conn, {404, "операцията не е намерена"})
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  ## Протокол за маржа (чл.90 ППЗДС)
+
+  def margin_list(conn, _params) do
+    with {:ok, cid} <- active(conn) do
+      Respond.ok(conn, %{items: Margin.list(cid)})
+    end
+  end
+
+  def margin_preview(conn, %{"month" => month}) do
+    with {:ok, cid} <- active(conn), {:ok, p} <- Margin.preview(cid, month) do
+      Respond.ok(conn, p)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def margin_create(conn, %{"month" => month}) do
+    with {:ok, cid} <- active(conn), {:ok, p} <- Margin.create(cid, month) do
+      Respond.ok(conn, p, 201)
+    else
+      error -> Respond.error(conn, error)
+    end
+  end
+
+  def margin_delete(conn, %{"id" => id}) do
+    with {:ok, cid} <- active(conn), {:ok, _} <- Margin.delete(cid, id) do
+      Respond.no_content(conn)
+    else
       error -> Respond.error(conn, error)
     end
   end

@@ -32,6 +32,8 @@ defmodule Botyaga.Invoicing.Head do
         bank_account_id: Params.integer(params, "bank_account_id") || 0,
         exclude_vat: flag(params, "exclude_vat"),
         is_oss: flag(params, "is_oss"),
+        is_margin: flag(params, "is_margin"),
+        margin_export: flag(params, "margin_export"),
         oss_country: string(params, "oss_country"),
         vat_article: string(params, "vat_article"),
         customs_statistical: opt_money(params, "customs_statistical"),
@@ -63,6 +65,8 @@ defmodule Botyaga.Invoicing.Head do
       |> put_int(params, "bank_account_id")
       |> put_flag(params, "exclude_vat")
       |> put_flag(params, "is_oss")
+      |> put_flag(params, "is_margin")
+      |> put_flag(params, "margin_export")
       |> put_string(params, "oss_country")
 
     head =

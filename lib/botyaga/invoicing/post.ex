@@ -132,8 +132,15 @@ defmodule Botyaga.Invoicing.Post do
 
   defp plan_for_company(company, inv) do
     total = Money.amount_for_doc(inv.document_type, inv.total_amount)
-    vat = Money.amount_for_doc(inv.document_type, inv.vat_amount)
-    vat_cents = Money.cents(inv.vat_amount) || 0
+
+    # Режим на маржа: фактурата е без ДДС; данъкът се начислява с месечния протокол.
+    {vat, vat_cents} =
+      if inv.is_margin == 1,
+        do: {"0.00", 0},
+        else:
+          {Money.amount_for_doc(inv.document_type, inv.vat_amount),
+           Money.cents(inv.vat_amount) || 0}
+
     lines = Invoicing.lines_of(inv.id)
 
     cond do
@@ -433,13 +440,35 @@ defmodule Botyaga.Invoicing.Post do
     end
   end
 
+  defp margin_purchase_in_journal?(inv) do
+    case Repo.get_by(Catalog.Counterpart, id: inv.counterpart_id, company_id: inv.company_id) do
+      nil -> false
+      cp -> cp.is_individual != 1 and String.upcase(cp.country || "BG") == "BG"
+    end
+  end
+
   defp write_journal(inv, plan) do
     vat_type =
       cond do
-        inv.exclude_vat != 0 -> "no_vat"
-        inv.direction == "in" and inv.document_type == "09" -> "both"
-        inv.direction == "out" -> "sales"
-        true -> "purchase"
+        # Марж продажба: влиза само с информативни колони (без суми); протоколът начислява ДДС.
+        inv.is_margin != 0 and inv.direction == "out" ->
+          "sales"
+
+        # Марж покупка: колона 9 само при BG фактура от фирма; от ФЛ/ЕС не влиза.
+        inv.is_margin != 0 and inv.direction == "in" ->
+          if margin_purchase_in_journal?(inv), do: "purchase", else: "no_vat"
+
+        inv.exclude_vat != 0 ->
+          "no_vat"
+
+        inv.direction == "in" and inv.document_type == "09" ->
+          "both"
+
+        inv.direction == "out" ->
+          "sales"
+
+        true ->
+          "purchase"
       end
 
     doc_label =

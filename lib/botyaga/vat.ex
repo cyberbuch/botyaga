@@ -140,6 +140,15 @@ defmodule Botyaga.Vat do
           end
         end)
 
+      {cells, purchases, sales, pok, pro, vies_map} =
+        Enum.reduce(
+          Botyaga.Vat.Margin.journal_rows(company_id, period.iso),
+          {cells, purchases, sales, pok, pro, vies_map},
+          fn row, acc ->
+            register_margin(acc, co, period, row)
+          end
+        )
+
       cells = cells |> VatLine.cells_finish() |> load_manual(company_id, period.iso)
 
       parties =
@@ -223,6 +232,32 @@ defmodule Botyaga.Vat do
       {cells, purchases, sales ++ [row], pok,
        pro <> Files.pro_line(co.vat, period.nap, co.branch, n, ln), vies_map}
     end
+  end
+
+  # Протокол за маржа (вид 09): ДДС върху положителния марж в колона 11/12 (износ → 0%).
+  defp register_margin(acc, co, period, row) do
+    {cells, purchases, sales, pok, pro, vies_map} = acc
+
+    ln =
+      VatLine.empty("sales")
+      |> Map.put(:doc_type, "09")
+      |> Map.put(:doc_no, "МАРЖ-#{period.iso}")
+      |> Map.put(:doc_date, period.iso <> "-01")
+      |> Map.put(:cp_vat, co.vat)
+      |> Map.put(:cp_name, co.name)
+      |> Map.put(:goods, "Протокол марж чл.90")
+
+    ln =
+      if row.export == 1,
+        do: VatLine.add_sale(ln, row.base, 0, "0", ""),
+        else: VatLine.add_sale(ln, row.base, row.vat, "20", "")
+
+    n = cells.sales_n + 1
+    cells = VatLine.cells_add(cells, ln)
+    json = ln |> VatLine.to_json(0, n) |> Map.put(:branch, branch_of(co.branch))
+
+    {cells, purchases, sales ++ [json], pok,
+     pro <> Files.pro_line(co.vat, period.nap, co.branch, n, ln), vies_map}
   end
 
   defp branch_of(raw) do
@@ -369,40 +404,49 @@ defmodule Botyaga.Vat do
         ln
 
       inv ->
-        ln =
-          if inv.issue_date not in [nil, ""], do: Map.put(ln, :doc_date, inv.issue_date), else: ln
-
-        inv_net = Money.cents(inv.net_amount) || 0
-        inv_vat = Money.cents(inv.vat_amount) || 0
-        c_stat = Money.cents(inv.customs_statistical) || 0
-        c_duty = Money.cents(inv.customs_duty) || 0
-        c_vat = Money.cents(inv.customs_vat) || 0
-        vat_art = inv.vat_article || ""
-
-        cond do
-          inv.document_type == "07" and (c_stat > 0 or c_duty > 0 or c_vat > 0) ->
-            base = if c_stat + c_duty > 0, do: c_stat + c_duty, else: inv_net
-            vat = if c_vat > 0, do: c_vat, else: inv_vat
-            ln = VatLine.reset_amounts(ln)
-            ln = if ln.cp_vat == "", do: Map.put(ln, :cp_vat, "999999999999999"), else: ln
-
-            ln =
-              if ln.goods == "",
-                do: Map.put(ln, :goods, "Внос по митническа декларация"),
-                else: ln
-
-            VatLine.add_purch(ln, base, vat)
-
-          true ->
-            ln =
-              if inv.document_type == "09" and String.trim(vat_art) != "" do
-                Map.put(ln, :goods, "Протокол по #{String.trim(vat_art)} от ЗДДС")
-              else
-                ln
-              end
-
-            overlay_lines(ln, inv, inv_net, inv_vat)
+        if inv.is_margin == 1 and ln.kind == "sales" do
+          # Марж продажба: само информативни колони, без данъчна основа/ДДС.
+          VatLine.reset_amounts(ln)
+        else
+          overlay_inv(company_id, ln, inv)
         end
+    end
+  end
+
+  defp overlay_inv(_company_id, ln, inv) do
+    ln =
+      if inv.issue_date not in [nil, ""], do: Map.put(ln, :doc_date, inv.issue_date), else: ln
+
+    inv_net = Money.cents(inv.net_amount) || 0
+    inv_vat = Money.cents(inv.vat_amount) || 0
+    c_stat = Money.cents(inv.customs_statistical) || 0
+    c_duty = Money.cents(inv.customs_duty) || 0
+    c_vat = Money.cents(inv.customs_vat) || 0
+    vat_art = inv.vat_article || ""
+
+    cond do
+      inv.document_type == "07" and (c_stat > 0 or c_duty > 0 or c_vat > 0) ->
+        base = if c_stat + c_duty > 0, do: c_stat + c_duty, else: inv_net
+        vat = if c_vat > 0, do: c_vat, else: inv_vat
+        ln = VatLine.reset_amounts(ln)
+        ln = if ln.cp_vat == "", do: Map.put(ln, :cp_vat, "999999999999999"), else: ln
+
+        ln =
+          if ln.goods == "",
+            do: Map.put(ln, :goods, "Внос по митническа декларация"),
+            else: ln
+
+        VatLine.add_purch(ln, base, vat)
+
+      true ->
+        ln =
+          if inv.document_type == "09" and String.trim(vat_art) != "" do
+            Map.put(ln, :goods, "Протокол по #{String.trim(vat_art)} от ЗДДС")
+          else
+            ln
+          end
+
+        overlay_lines(ln, inv, inv_net, inv_vat)
     end
   end
 

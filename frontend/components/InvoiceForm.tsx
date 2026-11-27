@@ -74,6 +74,8 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
   const [pricesIncludeVat, setPricesIncludeVat] = useState(false);
   const [excludeVat, setExcludeVat] = useState(false);
   const [isOss, setOss] = useState(false);
+  const [isMargin, setIsMargin] = useState(false);
+  const [marginExport, setMarginExport] = useState(false);
   const [ossEnabled, setOssEnabled] = useState(false);
   const [ossCountry, setOssCountry] = useState("");
   const [vatArticle, setVatArticle] = useState("чл. 117");
@@ -211,6 +213,8 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
         );
         setExcludeVat(Number(inv.exclude_vat || 0) === 1);
         setOss(Number(inv.is_oss || 0) === 1);
+        setIsMargin(Number(inv.is_margin || 0) === 1);
+        setMarginExport(Number(inv.margin_export || 0) === 1);
         setOssCountry(inv.oss_country || "");
         setVatArticle(inv.vat_article || "чл. 117");
         setCustomsStatistical(inv.customs_statistical || "");
@@ -388,6 +392,8 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
       location_id: Number(locationId) || 0,
       bank_account_id: Number(bankAccountId) || 0,
       is_oss: isOss ? 1 : 0,
+      is_margin: isMargin ? 1 : 0,
+      margin_export: marginExport ? 1 : 0,
       oss_country: isOss ? ossCountry : "",
       exclude_vat:
         direction === "in" && documentType !== "07" && documentType !== "09" && excludeVat
@@ -499,6 +505,10 @@ export function InvoiceForm({ mode, invoiceId }: Props) {
         setExcludeVat={setExcludeVat}
         isOss={isOss}
         setOss={setOss}
+        isMargin={isMargin}
+        setIsMargin={setIsMargin}
+        marginExport={marginExport}
+        setMarginExport={setMarginExport}
         ossEnabled={ossEnabled}
         ossCountry={ossCountry}
         setOssCountry={setOssCountry}
