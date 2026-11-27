@@ -43,6 +43,7 @@ const NAV_ITEMS = [
   { href: "/opening-balances", key: "nav.opening_balances", perm: "periods" },
   { href: "/accounting-periods", key: "nav.periods", perm: "periods" },
   { href: "/vat", key: "nav.vat", perm: "vat" },
+  { href: "/oss", key: "nav.oss", perm: "vat" },
   { href: "/dividends", key: "nav.dividends", perm: "dividends" },
   { href: "/exchange-rates", key: "nav.exchange_rates", perm: "rates" },
   { href: "/saft", key: "nav.saft", perm: "saft" },

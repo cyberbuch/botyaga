@@ -91,11 +91,95 @@ defmodule BotyagaWeb.OssTest do
     inv = sale(conn, is_oss: 1)
     post(conn, "/v1/invoices/#{inv["id"]}/post", %{})
 
+    # Обикновена OSS фактура НЕ влиза отделно в дневника; декларира се общо с вид 81.
+    body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
+    assert body["cells"]["01-18"] == "0.00"
+
+    decl = json_response(post(conn, "/v1/oss/month/2026-11/declare", %{}), 200)
+    assert decl["document_type"] == "81"
+
     body = json_response(get(conn, "/v1/vat/registers?period=2026-11"), 200)
     assert body["cells"]["01-18"] == "100.00"
-
-    # чуждото ДДС (20) не участва в българския ДДС за внасяне (01-20)
     assert body["cells"]["01-20"] == "0.00"
     assert Enum.any?(body["sales"], &(&1["base_oss"] == "100.00"))
+  end
+
+  test "OSS отчет: редове, преглед, потвърждаване (Дт 411 / Кт 702 / Кт 4534)", %{
+    conn: conn,
+    company: company
+  } do
+    patch(conn, "/v1/companies/#{company.id}", %{"oss_enabled" => 1})
+
+    r =
+      json_response(
+        post(conn, "/v1/oss/reports", %{
+          "month" => "2026-11",
+          "lines" => [
+            %{
+              "account" => "702",
+              "country" => "DE",
+              "supply_kind" => "goods",
+              "rate_kind" => "standard",
+              "rate" => "19",
+              "gross" => "230.00",
+              "currency" => "EUR"
+            }
+          ]
+        }),
+        201
+      )
+
+    assert r["number"] =~ "OSS-"
+    pv = json_response(get(conn, "/v1/oss/reports/#{r["id"]}/preview"), 200)
+    assert pv["errors"] == []
+    assert pv["total_base"] == "193.28"
+    assert pv["total_vat"] == "36.72"
+
+    conf = json_response(post(conn, "/v1/oss/reports/#{r["id"]}/confirm", %{}), 200)
+    assert conf["status"] == "active"
+    entry = json_response(get(conn, "/v1/journal/#{conf["journal_entry_id"]}"), 200)
+    by = Enum.group_by(entry["lines"], & &1["account_number"])
+    assert hd(by["411"])["direction"] == "debit"
+    assert hd(by["4534"])["amount"] == "36.72"
+    assert hd(by["702"])["amount"] == "193.28"
+  end
+
+  test "тримесечна справка: части 4/5, замразяване и подаване", %{conn: conn, company: company} do
+    patch(conn, "/v1/companies/#{company.id}", %{"oss_enabled" => 1})
+
+    r =
+      json_response(
+        post(conn, "/v1/oss/reports", %{
+          "month" => "2026-11",
+          "lines" => [
+            %{
+              "account" => "702",
+              "country" => "DE",
+              "supply_kind" => "goods",
+              "rate" => "19",
+              "gross" => "230.00",
+              "currency" => "EUR"
+            }
+          ]
+        }),
+        201
+      )
+
+    post(conn, "/v1/oss/reports/#{r["id"]}/confirm", %{})
+
+    q = json_response(get(conn, "/v1/oss/quarter/2026/4"), 200)
+    assert q["data"]["part5_total"] == "36.72"
+    assert Enum.any?(q["data"]["part4"], &(&1["country"] == "DE" and &1["vat_eur"] == "36.72"))
+
+    f = json_response(post(conn, "/v1/oss/quarter/2026/4/freeze", %{}), 200)
+    assert f["status"] == "final"
+
+    s =
+      json_response(
+        post(conn, "/v1/oss/quarter/2026/4/submit", %{"date" => "2027-01-20", "number" => "123"}),
+        200
+      )
+
+    assert s["status"] == "submitted"
   end
 end

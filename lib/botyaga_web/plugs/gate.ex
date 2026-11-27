@@ -139,6 +139,7 @@ defmodule BotyagaWeb.Plugs.Gate do
   # ytbuch пропуска този ключ в gate-а си и връща 404 за приключването; тук е поправено.
   defp segment_permission(_method, "closing-operations", _), do: {:key, "periods"}
   defp segment_permission(_method, "vat", _), do: {:key, "vat"}
+  defp segment_permission(_method, "oss", _), do: {:key, "vat"}
   defp segment_permission(_method, "bank-accounts", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-formats", _), do: {:key, "banking"}
   defp segment_permission(_method, "bank-transactions", _), do: {:key, "banking"}

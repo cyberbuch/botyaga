@@ -167,6 +167,22 @@ defmodule BotyagaWeb.Router do
     post "/vat/operations", VatController, :operations_create
     patch "/vat/operations/:id", VatController, :operations_update
     delete "/vat/operations/:id", VatController, :operations_delete
+    get "/oss/reports", OssController, :reports
+    post "/oss/reports", OssController, :create
+    get "/oss/reports/:id", OssController, :report
+    patch "/oss/reports/:id", OssController, :update
+    delete "/oss/reports/:id", OssController, :delete
+    get "/oss/reports/:id/preview", OssController, :preview
+    post "/oss/reports/:id/confirm", OssController, :confirm
+    post "/oss/reports/:id/unpost", OssController, :unpost
+    get "/oss/month/:month", OssController, :month
+    post "/oss/month/:month/declare", OssController, :declare
+    delete "/oss/month/:month/declare", OssController, :undeclare
+    get "/oss/quarter/:year/:quarter", OssController, :quarter
+    post "/oss/quarter/:year/:quarter/freeze", OssController, :freeze
+    post "/oss/quarter/:year/:quarter/submit", OssController, :submit
+    post "/oss/quarter/:year/:quarter/unsubmit", OssController, :unsubmit
+    get "/oss/quarter/:year/:quarter/register", OssController, :register
     get "/vat-exemptions", VatController, :exemptions
 
     get "/bank-formats", BankingController, :formats

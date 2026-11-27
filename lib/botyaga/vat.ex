@@ -422,7 +422,7 @@ defmodule Botyaga.Vat do
         ln = VatLine.reset_amounts(ln)
 
         cond do
-          ln.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 ->
+          ln.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 and inv.document_type == "81" ->
             VatLine.add_oss_sale(ln, inv_net)
 
           ln.kind == "sales" and vop_protocol?(inv) ->
@@ -453,8 +453,12 @@ defmodule Botyaga.Vat do
         rate = Fmt.rate_kind(line.vat_rate)
 
         cond do
-          acc.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 ->
+          acc.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 and inv.document_type == "81" ->
             VatLine.add_oss_sale(acc, base)
+
+          # Обикновена OSS фактура: чуждото ДДС не влиза в българския дневник.
+          acc.kind == "sales" and Map.get(inv, :is_oss, 0) == 1 ->
+            acc
 
           acc.kind == "sales" and vop_protocol?(inv) ->
             VatLine.add_vop_sale(acc, base, vat)

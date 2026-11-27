@@ -137,6 +137,10 @@ defmodule Botyaga.Invoicing.Post do
     lines = Invoicing.lines_of(inv.id)
 
     cond do
+      # OSS деклариране (вид 81): влиза само в ДДС дневника, без счетоводна статия.
+      inv.document_type == "81" ->
+        {:ok, []}
+
       inv.direction == "in" and inv.document_type == "09" ->
         protocol_plan(company, vat, vat_cents)
 
