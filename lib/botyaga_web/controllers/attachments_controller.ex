@@ -14,6 +14,8 @@ defmodule BotyagaWeb.AttachmentsController do
   def index(conn, %{"doc_type" => t, "doc_id" => id}) do
     with {:ok, cid} <- active(conn) do
       Respond.ok(conn, %{items: Attachments.list(cid, t, String.to_integer(id))})
+    else
+      error -> Respond.error(conn, error)
     end
   end
 

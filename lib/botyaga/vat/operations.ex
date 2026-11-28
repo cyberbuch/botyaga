@@ -53,7 +53,9 @@ defmodule Botyaga.Vat.Operations do
   def create(company_id, params) do
     with {:ok, name} <- required(params, "name"),
          {:ok, category} <- category(params),
-         :ok <- unique_name(company_id, category, name, 0) do
+         :ok <- unique_name(company_id, category, name, 0),
+         :ok <- ensure_account(company_id, int(params, "counterpart_account_id", 0)),
+         :ok <- ensure_account(company_id, int(params, "vat_account_id", 0)) do
       attrs = attrs(company_id, params, name, category)
       %Operation{} |> Ecto.Changeset.change(attrs) |> Repo.insert() |> ok()
     end
@@ -64,7 +66,13 @@ defmodule Botyaga.Vat.Operations do
     # редактират се името, сметките и протоколът (както при конкурента).
     name = pick(params, "name", op.name)
 
-    with :ok <- unique_name(op.company_id, op.category, name, op.id) do
+    with :ok <- unique_name(op.company_id, op.category, name, op.id),
+         :ok <-
+           ensure_account(
+             op.company_id,
+             int(params, "counterpart_account_id", op.counterpart_account_id)
+           ),
+         :ok <- ensure_account(op.company_id, int(params, "vat_account_id", op.vat_account_id)) do
       changes = %{
         name: name,
         counterpart_account_id: int(params, "counterpart_account_id", op.counterpart_account_id),
@@ -271,6 +279,17 @@ defmodule Botyaga.Vat.Operations do
     case Params.integer(params, key) do
       nil -> default
       v -> v
+    end
+  end
+
+  # Сметка 0 = „няма“; всяка друга трябва да е на фирмата (проверка срещу IDOR).
+  defp ensure_account(_company_id, id) when id <= 0, do: :ok
+
+  defp ensure_account(company_id, id) do
+    if Repo.get_by(Botyaga.Catalog.Account, id: id, company_id: company_id) == nil do
+      {:error, {422, "сметката не е намерена във фирмата"}}
+    else
+      :ok
     end
   end
 

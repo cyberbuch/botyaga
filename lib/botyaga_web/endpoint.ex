@@ -41,8 +41,11 @@ defmodule BotyagaWeb.Endpoint do
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
+  # Multipart до 25 MB: Attachments позволява файлове до 20 MB (defaults на Plug
+  # са 8 MB, което отрязваше големите прикачени файлове с 413 преди контролера).
+  # JSON до 16 MB: UBL импорт идва като base64 в тялото.
   plug Plug.Parsers,
-    parsers: [:urlencoded, :multipart, :json],
+    parsers: [:urlencoded, {:multipart, length: 25_000_000}, {:json, length: 16_000_000}],
     pass: ["*/*"],
     json_decoder: Phoenix.json_library()
 

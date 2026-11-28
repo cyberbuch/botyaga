@@ -16,8 +16,14 @@ defmodule Botyaga.Invoicing.Post do
          :ok <- Periods.assert_open(company_id, inv.accounting_month),
          :ok <- postable(inv),
          {:ok, plan} <- plan_for(inv) do
-      {:ok, body} = write_journal(inv, plan)
-      Replay.rebuild(company_id, "9999-12-31")
+      # Статията и складовият replay са в една транзакция: при грешка в replay
+      # фактурата не остава „постната“ с полупроменени партиди.
+      {:ok, body} =
+        Repo.transaction(fn ->
+          {:ok, body} = write_journal(inv, plan)
+          Replay.rebuild(company_id, "9999-12-31")
+          body
+        end)
 
       Audit.record(
         company_id,
@@ -57,9 +63,8 @@ defmodule Botyaga.Invoicing.Post do
       Repo.transaction(fn ->
         Enum.each(Invoicing.journal_ids(inv), &Journal.wipe/1)
         Repo.update!(Ecto.Changeset.change(inv, status: "draft", journal_entry_id: 0))
+        Replay.rebuild(company_id, "9999-12-31")
       end)
-
-      Replay.rebuild(company_id, "9999-12-31")
 
       Audit.record(
         company_id,
@@ -316,8 +321,8 @@ defmodule Botyaga.Invoicing.Post do
     end
   end
 
-  defp pick_account(_company, id, _role) when id > 0 do
-    case Repo.get(Catalog.Account, id) do
+  defp pick_account(company, id, _role) when id > 0 do
+    case Repo.get_by(Catalog.Account, id: id, company_id: company.id) do
       nil -> {:error, {422, "липсва сметка от ДДС операцията"}}
       a -> {:ok, a}
     end
@@ -329,7 +334,7 @@ defmodule Botyaga.Invoicing.Post do
   defp vat_sale_account(company, inv, _vat_acc) when inv.is_oss == 1 do
     case Botyaga.Oss.Rates.resolve(company.id, inv.oss_country, inv.issue_date) do
       %{account_id: id} when id > 0 ->
-        case Repo.get(Catalog.Account, id) do
+        case Repo.get_by(Catalog.Account, id: id, company_id: company.id) do
           nil -> acct_or_create(company, Defaults.number(company, "oss_vat"), "ДДС по OSS режим")
           a -> {:ok, a}
         end

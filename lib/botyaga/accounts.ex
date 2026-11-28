@@ -272,6 +272,7 @@ defmodule Botyaga.Accounts do
     Repo.transaction(fn ->
       Repo.delete_all(from(c in RecoveryCode, where: c.user_id == ^user.id))
       Repo.delete_all(from(t in PasswordResetToken, where: t.user_id == ^user.id))
+      Repo.delete_all(from(m in Botyaga.Access.Membership, where: m.user_id == ^user.id))
       Repo.delete!(user)
     end)
   end

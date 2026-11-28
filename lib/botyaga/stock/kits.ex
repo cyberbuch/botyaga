@@ -25,7 +25,9 @@ defmodule Botyaga.Stock.Kits do
     with {:ok, date} <- required(params, "doc_date"),
          {:ok, output} <- product(company_id, Params.integer(params, "output_product_id") || 0),
          :ok <- output_kind(output, kind(params)),
-         {:ok, lines} <- parse_lines(company_id, params, kind(params)) do
+         {:ok, lines} <- parse_lines(company_id, params, kind(params)),
+         {:ok, location_id} <- location(company_id, params),
+         {:ok, recipe_id} <- recipe(company_id, params) do
       {:ok, k} =
         Repo.transaction(fn ->
           k =
@@ -36,8 +38,8 @@ defmodule Botyaga.Stock.Kits do
               kind: kind(params),
               output_product_id: output.id,
               quantity: pick(params, "quantity", "1"),
-              location_id: Params.integer(params, "location_id") || 0,
-              recipe_id: Params.integer(params, "recipe_id") || 0,
+              location_id: location_id,
+              recipe_id: recipe_id,
               notes: pick(params, "notes", "")
             })
 
@@ -66,7 +68,8 @@ defmodule Botyaga.Stock.Kits do
 
   def update(company_id, sub, id, params) do
     with {:ok, k} <- fetch_draft(company_id, id),
-         {:ok, lines} <- parse_lines(company_id, params, k.kind) do
+         {:ok, lines} <- parse_lines(company_id, params, k.kind),
+         {:ok, location_id} <- pick_location(company_id, params, k.location_id) do
       {:ok, k} =
         Repo.transaction(fn ->
           k =
@@ -74,7 +77,7 @@ defmodule Botyaga.Stock.Kits do
               Ecto.Changeset.change(k,
                 doc_date: pick(params, "doc_date", k.doc_date),
                 quantity: pick(params, "quantity", k.quantity),
-                location_id: pick_int(params, "location_id", k.location_id),
+                location_id: location_id,
                 notes: pick(params, "notes", k.notes)
               )
             )
@@ -192,9 +195,39 @@ defmodule Botyaga.Stock.Kits do
 
   defp kind(params), do: pick(params, "kind", "kit_goods")
 
+  defp location(company_id, params) do
+    id = Params.integer(params, "location_id") || 0
+
+    if id > 0 and Repo.get_by(Botyaga.Companies.Location, id: id, company_id: company_id) == nil do
+      {:error, {404, "обектът не е намерен"}}
+    else
+      {:ok, id}
+    end
+  end
+
+  defp pick_location(company_id, params, current) do
+    case Params.integer(params, "location_id") do
+      nil -> {:ok, current}
+      id -> location(company_id, %{"location_id" => id})
+    end
+  end
+
+  defp recipe(company_id, params) do
+    id = Params.integer(params, "recipe_id") || 0
+
+    if id > 0 and
+         Repo.get_by(Botyaga.Production.Recipe, id: id, company_id: company_id) == nil do
+      {:error, {404, "рецептата не е намерена"}}
+    else
+      {:ok, id}
+    end
+  end
+
   defp output_kind(output, kind) do
     want = if kind == "kit_production", do: "303", else: "304"
-    acct = Repo.get(Catalog.Account, output.inventory_account_id)
+
+    acct =
+      Repo.get_by(Catalog.Account, id: output.inventory_account_id, company_id: output.company_id)
 
     cond do
       acct == nil -> {:error, {422, "комплектът няма инвентарна сметка"}}
@@ -221,8 +254,8 @@ defmodule Botyaga.Stock.Kits do
 
   # В комплект от стоки не може собствен продукт (приходът му е 701, не 702).
   defp component_kind(p, "kit_goods") do
-    acct = Repo.get(Catalog.Account, p.inventory_account_id)
-    rev = Repo.get(Catalog.Account, p.revenue_account_id)
+    acct = Repo.get_by(Catalog.Account, id: p.inventory_account_id, company_id: p.company_id)
+    rev = Repo.get_by(Catalog.Account, id: p.revenue_account_id, company_id: p.company_id)
 
     cond do
       acct && String.starts_with?(acct.number, "303") ->
@@ -335,13 +368,6 @@ defmodule Botyaga.Stock.Kits do
     case Params.str(params, key) do
       {:present, v} -> v
       _ -> default
-    end
-  end
-
-  defp pick_int(params, key, default) do
-    case Params.integer(params, key) do
-      nil -> default
-      v -> v
     end
   end
 end

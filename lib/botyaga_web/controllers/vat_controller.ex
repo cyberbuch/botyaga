@@ -87,6 +87,8 @@ defmodule BotyagaWeb.VatController do
   def margin_list(conn, _params) do
     with {:ok, cid} <- active(conn) do
       Respond.ok(conn, %{items: Margin.list(cid)})
+    else
+      error -> Respond.error(conn, error)
     end
   end
 

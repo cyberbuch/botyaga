@@ -21,6 +21,8 @@ defmodule BotyagaWeb.AccessController do
         {:ok, user} -> user |> Render.user() |> then(&Respond.ok(conn, &1, 201))
         {:error, {status, detail}} -> Respond.error(conn, {status, detail})
       end
+    else
+      error -> Respond.error(conn, error)
     end
   end
 
@@ -31,6 +33,8 @@ defmodule BotyagaWeb.AccessController do
         {:ok, user} -> user |> Render.user() |> then(&Respond.ok(conn, &1))
         {:error, {status, detail}} -> Respond.error(conn, {status, detail})
       end
+    else
+      error -> Respond.error(conn, error)
     end
   end
 
@@ -42,6 +46,8 @@ defmodule BotyagaWeb.AccessController do
         {:ok, nil} -> Respond.no_content(conn)
         {:error, {status, detail}} -> Respond.error(conn, {status, detail})
       end
+    else
+      error -> Respond.error(conn, error)
     end
   end
 
@@ -62,6 +68,8 @@ defmodule BotyagaWeb.AccessController do
         {:ok, role} -> role |> Render.role() |> then(&Respond.ok(conn, &1, 201))
         {:error, {status, detail}} -> Respond.error(conn, {status, detail})
       end
+    else
+      error -> Respond.error(conn, error)
     end
   end
 
@@ -72,6 +80,8 @@ defmodule BotyagaWeb.AccessController do
         {:ok, role} -> role |> Render.role() |> then(&Respond.ok(conn, &1))
         {:error, {status, detail}} -> Respond.error(conn, {status, detail})
       end
+    else
+      error -> Respond.error(conn, error)
     end
   end
 
@@ -80,6 +90,8 @@ defmodule BotyagaWeb.AccessController do
          {:ok, role} <- find_role(id) do
       Access.delete_role(role)
       Respond.no_content(conn)
+    else
+      error -> Respond.error(conn, error)
     end
   end
 

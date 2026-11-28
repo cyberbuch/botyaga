@@ -12,9 +12,22 @@ defmodule BotyagaWeb.Respond do
 
   @doc "Файл за изтегляне (PDF/DOCX/ODT/XLSX/ODS/XML)."
   def attachment(conn, bytes, mime, filename) do
+    filename = to_string(filename)
+
+    # Кавичките и контролни знаци се махат; за не-ASCII имена се добавя RFC 5987 filename*.
+    quoted = filename |> String.replace("\"", "'") |> String.replace(["\r", "\n"], "")
+    ascii = String.replace(quoted, ~r/[^\x20-\x7E]/, "_")
+
+    header =
+      if ascii == quoted do
+        "attachment; filename=\"#{quoted}\""
+      else
+        "attachment; filename=\"#{ascii}\"; filename*=UTF-8''#{URI.encode(quoted)}"
+      end
+
     conn
     |> put_resp_header("content-type", mime)
-    |> put_resp_header("content-disposition", "attachment; filename=\"#{filename}\"")
+    |> put_resp_header("content-disposition", header)
     |> send_resp(200, bytes)
   end
 
@@ -23,6 +36,9 @@ defmodule BotyagaWeb.Respond do
   end
 
   def error(conn, {:error, {status, detail}}), do: error(conn, {status, detail})
+
+  # защитна клауза: неочакван {:error, atom} не трябва да дава 500
+  def error(conn, {:error, _other}), do: error(conn, {422, "невалидна заявка"})
 
   def error(conn, status, detail) when is_binary(detail), do: error(conn, {status, detail})
 end

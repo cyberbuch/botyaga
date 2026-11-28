@@ -154,26 +154,44 @@ defmodule Botyaga.Vat.Margin do
   end
 
   defp margin_purchases(company_id) do
-    Repo.all(
-      from(i in Invoicing.Invoice,
-        where:
-          i.company_id == ^company_id and i.is_margin == 1 and i.direction == "in" and
-            i.status == "posted",
-        order_by: [asc: i.id]
-      )
-    )
-    |> Enum.reduce(%{}, fn i, acc ->
-      lines = Invoicing.lines_of(i.id)
-
-      Enum.reduce(lines, acc, fn l, a ->
-        Map.update(
-          a,
-          l.product_id,
-          Dec.or0(l.net_amount) || 0,
-          &(&1 + (Dec.or0(l.net_amount) || 0))
+    all =
+      Repo.all(
+        from(i in Invoicing.Invoice,
+          where:
+            i.company_id == ^company_id and i.is_margin == 1 and i.direction == "in" and
+              i.status == "posted",
+          order_by: [asc: i.id]
         )
+      )
+      |> Enum.reduce(%{}, fn i, acc ->
+        lines = Invoicing.lines_of(i.id)
+
+        Enum.reduce(lines, acc, fn l, a ->
+          Map.update(
+            a,
+            l.product_id,
+            Dec.or0(l.net_amount) || 0,
+            &(&1 + (Dec.or0(l.net_amount) || 0))
+          )
+        end)
       end)
-    end)
+
+    # Покупките, вече „изразходени“ в потвърдени протоколи, не се броят повторно —
+    # иначе един и същ марж се приспада в два различни месеца.
+    consumed =
+      Repo.all(
+        from(l in MarginProtocolLine,
+          join: p in MarginProtocol,
+          on: p.id == l.protocol_id,
+          where: p.company_id == ^company_id and p.status == "confirmed",
+          select: {l.product_id, l.purchase_price}
+        )
+      )
+      |> Enum.reduce(%{}, fn {pid, price}, acc ->
+        Map.update(acc, pid, Dec.or0(price) || 0, &(&1 + (Dec.or0(price) || 0)))
+      end)
+
+    Map.merge(all, consumed, fn _pid, total, used -> max(total - used, 0) end)
   end
 
   defp write_entry(company_id, p, lines) do

@@ -10,6 +10,7 @@ defmodule Botyaga.Production.Cards do
 
   alias Botyaga.{Attachments, Catalog, Dec, Journal, Params, Repo}
   alias Botyaga.Production.{Card, CardProduct, Order}
+  alias Botyaga.Production.Cards.Validate
 
   def list(company_id) do
     Repo.all(from(c in Card, where: c.company_id == ^company_id, order_by: [desc: c.id]))
@@ -24,7 +25,8 @@ defmodule Botyaga.Production.Cards do
   end
 
   def create(company_id, params) do
-    with {:ok, month} <- month_param(params) do
+    with {:ok, month} <- month_param(params),
+         {:ok, products} <- Validate.parse_products(company_id, params) do
       {:ok, c} =
         Repo.insert(%Card{
           company_id: company_id,
@@ -39,13 +41,15 @@ defmodule Botyaga.Production.Cards do
           notes: str(params, "notes")
         })
 
-      insert_products(c.id, params)
+      Validate.insert_products(c.id, products)
       get(company_id, c.id)
     end
   end
 
   def update(company_id, id, params) do
-    with {:ok, c} <- fetch_draft(company_id, id) do
+    with {:ok, c} <- fetch_draft(company_id, id),
+         :ok <- Validate.ensure_card_accounts(company_id, params),
+         {:ok, products} <- Validate.parse_products_opt(company_id, params) do
       {:ok, c} =
         Repo.update(
           Ecto.Changeset.change(c,
@@ -65,7 +69,7 @@ defmodule Botyaga.Production.Cards do
 
       if Map.has_key?(params, "products") do
         Repo.delete_all(from(p in CardProduct, where: p.card_id == ^c.id))
-        insert_products(c.id, params)
+        Validate.insert_products(c.id, products)
       end
 
       get(company_id, c.id)
@@ -157,7 +161,7 @@ defmodule Botyaga.Production.Cards do
 
     to_allocate = available - wip_end
 
-    allocated = allocate(products, to_allocate)
+    allocated = allocate(c.company_id, products, to_allocate)
 
     errors = []
     errors = if products == [], do: ["няма продукти в картата" | errors], else: errors
@@ -190,7 +194,7 @@ defmodule Botyaga.Production.Cards do
       )
     )
     |> Enum.map(fn o ->
-      out = Repo.get(Catalog.Product, o.output_product_id)
+      out = Repo.get_by(Catalog.Product, id: o.output_product_id, company_id: c.company_id)
 
       %{
         id: o.id,
@@ -204,7 +208,7 @@ defmodule Botyaga.Production.Cards do
     end)
   end
 
-  defp allocate(products, total) do
+  defp allocate(company_id, products, total) do
     manual = Enum.filter(products, &(&1.manual_amount != ""))
     auto = Enum.filter(products, &(&1.manual_amount == ""))
 
@@ -245,7 +249,7 @@ defmodule Botyaga.Production.Cards do
       %{
         id: p.id,
         product_id: p.product_id,
-        name: product_name(p.product_id),
+        name: product_name(company_id, p.product_id),
         quantity: p.quantity,
         coefficient: p.coefficient,
         manual_amount: p.manual_amount,
@@ -421,26 +425,6 @@ defmodule Botyaga.Production.Cards do
   defp products_of(card_id),
     do: Repo.all(from(p in CardProduct, where: p.card_id == ^card_id, order_by: [asc: p.id]))
 
-  defp insert_products(card_id, params) do
-    arr = Map.get(params, "products") || []
-
-    Enum.each(arr, fn p ->
-      pid = Params.integer(p, "product_id") || 0
-      product = Repo.get(Catalog.Product, pid)
-
-      %CardProduct{}
-      |> Ecto.Changeset.change(%{
-        card_id: card_id,
-        product_id: pid,
-        quantity: pick(p, "quantity", "0"),
-        coefficient: pick(p, "coefficient", "1"),
-        manual_amount: pick(p, "manual_amount", ""),
-        inventory_account_id: (product && product.inventory_account_id) || 0
-      })
-      |> Repo.insert!()
-    end)
-  end
-
   defp one(c, with_products) do
     base = %{
       id: c.id,
@@ -511,15 +495,15 @@ defmodule Botyaga.Production.Cards do
     )
   end
 
-  defp account!(_company_id, id) do
-    case Repo.get(Catalog.Account, id) do
+  defp account!(company_id, id) do
+    case Repo.get_by(Catalog.Account, id: id, company_id: company_id) do
       nil -> raise "липсва сметка #{id}"
       a -> a
     end
   end
 
-  defp product_name(pid) do
-    case Repo.get(Catalog.Product, pid) do
+  defp product_name(company_id, pid) do
+    case Repo.get_by(Catalog.Product, id: pid, company_id: company_id) do
       nil -> ""
       p -> p.name
     end

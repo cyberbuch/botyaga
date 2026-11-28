@@ -22,9 +22,8 @@ defmodule Botyaga.Oss.Rates do
 
   def create(company_id, params) do
     with {:ok, country} <- required(params, "country"),
-         {:ok, rate} <- required(params, "rate") do
-      account_id = account_for(company_id, params)
-
+         {:ok, rate} <- required(params, "rate"),
+         {:ok, account_id} <- account_for(company_id, params) do
       {:ok, r} =
         Repo.insert(%Rate{
           company_id: company_id,
@@ -81,7 +80,7 @@ defmodule Botyaga.Oss.Rates do
         number = pick(params, "account_number", "")
 
         if number == "" do
-          0
+          {:ok, 0}
         else
           case Repo.get_by(Catalog.Account, company_id: company_id, number: number) do
             nil ->
@@ -92,15 +91,19 @@ defmodule Botyaga.Oss.Rates do
                   name: "ДДС OSS #{number}"
                 })
 
-              a.id
+              {:ok, a.id}
 
             a ->
-              a.id
+              {:ok, a.id}
           end
         end
 
       id ->
-        id
+        # Чужд account_id не се записва — само сметка на фирмата (проверка срещу IDOR).
+        case Repo.get_by(Catalog.Account, id: id, company_id: company_id) do
+          nil -> {:error, {422, "сметката не е намерена във фирмата"}}
+          a -> {:ok, a.id}
+        end
     end
   end
 
@@ -126,7 +129,7 @@ defmodule Botyaga.Oss.Rates do
   end
 
   defp json(r) do
-    acct = Repo.get(Catalog.Account, r.account_id)
+    acct = Repo.get_by(Catalog.Account, id: r.account_id, company_id: r.company_id)
 
     %{
       id: r.id,

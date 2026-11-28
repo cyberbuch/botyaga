@@ -125,39 +125,31 @@ defmodule Botyaga.Opening do
       quantity = string(params, "quantity", "0")
       description = string(params, "description")
 
-      cond do
-        zero?(debit) and zero?(credit) ->
-          {:error, {422, "въведете дебит или кредит"}}
+      with :ok <- Periods.assert_open(company_id, "#{year}-01"),
+           {:ok, account} <- ensure_account(company_id, account_id),
+           :ok <- check_amounts(account, debit, credit),
+           :ok <- check_money(quantity, "количеството"),
+           :ok <- ensure_ref(Catalog.Counterpart, counterpart_id, company_id, "контрагентът"),
+           :ok <- ensure_ref(Catalog.Product, product_id, company_id, "артикулът"),
+           :ok <- check_analytic(account, counterpart_id, product_id) do
+        Repo.insert!(%OpeningBalance{
+          company_id: company_id,
+          fiscal_year: year,
+          account_id: account_id,
+          debit: debit,
+          credit: credit,
+          counterpart_id: counterpart_id,
+          product_id: product_id,
+          quantity: quantity,
+          description: description
+        })
 
-        not zero?(debit) and not zero?(credit) ->
-          {:error, {422, "салдото е или дебит, или кредит — не и двете"}}
-
-        true ->
-          with :ok <- Periods.assert_open(company_id, "#{year}-01"),
-               {:ok, account} <- ensure_account(company_id, account_id),
-               :ok <- ensure_ref(Catalog.Counterpart, counterpart_id, company_id, "контрагентът"),
-               :ok <- ensure_ref(Catalog.Product, product_id, company_id, "артикулът"),
-               :ok <- check_side(account, debit, credit),
-               :ok <- check_analytic(account, counterpart_id, product_id) do
-            Repo.insert!(%OpeningBalance{
-              company_id: company_id,
-              fiscal_year: year,
-              account_id: account_id,
-              debit: debit,
-              credit: credit,
-              counterpart_id: counterpart_id,
-              product_id: product_id,
-              quantity: quantity,
-              description: description
-            })
-
-            {:ok,
-             %{
-               status: "created",
-               natural_side: natural_side(account.number),
-               account_kind: account_kind(account.number)
-             }}
-          end
+        {:ok,
+         %{
+           status: "created",
+           natural_side: natural_side(account.number),
+           account_kind: account_kind(account.number)
+         }}
       end
     end
   end
@@ -185,7 +177,21 @@ defmodule Botyaga.Opening do
                "контрагентът"
              ),
            {:ok, changes} <-
-             put_ref(changes, params, "product_id", Catalog.Product, company_id, "артикулът") do
+             put_ref(changes, params, "product_id", Catalog.Product, company_id, "артикулът"),
+           {:ok, account} <- ensure_account(company_id, row.account_id),
+           :ok <-
+             check_amounts(
+               account,
+               Map.get(changes, :debit, row.debit),
+               Map.get(changes, :credit, row.credit)
+             ),
+           :ok <- check_money(Map.get(changes, :quantity, row.quantity), "количеството"),
+           :ok <-
+             check_analytic(
+               account,
+               Map.get(changes, :counterpart_id, row.counterpart_id),
+               Map.get(changes, :product_id, row.product_id)
+             ) do
         row = if changes == %{}, do: row, else: Repo.update!(Ecto.Changeset.change(row, changes))
         {accounts, cps, prs} = maps(company_id)
 
@@ -342,6 +348,35 @@ defmodule Botyaga.Opening do
       nil -> true
       0 -> true
       _ -> false
+    end
+  end
+
+  defp check_money(raw, what) do
+    if Money.cents(raw) == nil do
+      {:error, {422, "невалидно #{what}"}}
+    else
+      :ok
+    end
+  end
+
+  # Едни и същи правила при create и update: валидни суми, или дебит, или
+  # кредит, и салдото да е от правилната страна на сметката.
+  defp check_amounts(account, debit, credit) do
+    cond do
+      Money.cents(debit) == nil ->
+        {:error, {422, "невалидна сума в дебит"}}
+
+      Money.cents(credit) == nil ->
+        {:error, {422, "невалидна сума в кредит"}}
+
+      zero?(debit) and zero?(credit) ->
+        {:error, {422, "въведете дебит или кредит"}}
+
+      not zero?(debit) and not zero?(credit) ->
+        {:error, {422, "салдото е или дебит, или кредит — не и двете"}}
+
+      true ->
+        check_side(account, debit, credit)
     end
   end
 

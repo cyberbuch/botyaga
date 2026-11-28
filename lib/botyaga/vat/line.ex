@@ -247,14 +247,29 @@ defmodule Botyaga.Vat.Line do
 
   def cells_finish(cells) do
     # spec: кл. 40 = кл. 41 + кл. 42 × кл. 33 + кл. 43 (частичен данъчен кредит).
-    coef = (Money.cents(cells.m33) || 0) / 100
-    r40 = cells.p41 + round(cells.p42 * coef) + cells.p43
+    # Целочислено: кл.33 е в стотинки от коефициента (0.29 → 29), кл.42 е в
+    # стотинки; делим на 100 с закръгляне „half away from zero“ — float дава
+    # грешка при точна половин стотинка (50 × 0.29 = 14.4999… → 14 вместо 15).
+    m33_c = Money.cents(cells.m33) || 0
+    r40 = cells.p41 + mul_div_round(cells.p42, m33_c, 100) + cells.p43
     diff = cells.s20 - r40
 
     if diff < 0 do
       %{cells | r40: r40, r50: 0, r60: -diff}
     else
       %{cells | r40: r40, r50: diff, r60: 0}
+    end
+  end
+
+  # a × b / div с закръгляне half away from zero (цяла аритметика, без float).
+  defp mul_div_round(a, b, div) do
+    p = a * b
+    half = Kernel.div(div, 2)
+
+    if p >= 0 do
+      Kernel.div(p + half, div)
+    else
+      -Kernel.div(-p + half, div)
     end
   end
 
